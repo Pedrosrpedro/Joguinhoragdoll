@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ragdoll Sandbox</title>
     
-    <!-- Importação de Fontes -->
+    <!-- Link para a fonte do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-
-    <!-- Link para o arquivo de estilo externo -->
+    
+    <!-- Link para o seu arquivo de estilos CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <!-- Wrapper para manter a proporção e centralizar o jogo -->
     <div id="aspect-ratio-wrapper">
-        <!-- Contêiner raiz que segura todas as telas -->
+        <!-- Este container segura todas as telas -->
         <div id="root-container">
 
-            <!-- Tela de Menu Principal -->
+            <!-- Menu Principal -->
             <div id="main-menu">
                 <div class="main-menu-list">
                     <button id="main-menu-play">jogar</button>
@@ -36,55 +36,273 @@
             <div id="map-selection-screen">
                 <h2>Selecione um Mapa</h2>
                 <div class="map-grid-container">
-                    <!-- Botões dos mapas -->
+                    <button class="map-preview-btn" data-map="padrao">
+                        <div class="map-preview-visual"></div>
+                        <span class="map-name">Padrão</span>
+                    </button>
+                    <button class="map-preview-btn" data-map="pequeno">
+                        <div class="map-preview-visual"></div>
+                        <span class="map-name">Pequeno</span>
+                    </button>
+                     <button class="map-preview-btn" data-map="grande">
+                        <div class="map-preview-visual"></div>
+                        <span class="map-name">Grande</span>
+                    </button>
+                    <button class="map-preview-btn" data-map="montanhas">
+                        <div id="montanhas-visual" class="map-preview-visual">
+                            <div class="mountain m1"></div>
+                            <div class="mountain m2"></div>
+                            <div class="mountain m3"></div>
+                        </div>
+                        <span class="map-name">Montanhas</span>
+                    </button>
+                    <button class="map-preview-btn" data-map="agua">
+                        <div id="agua-visual" class="map-preview-visual">
+                            <div class="ground"></div>
+                            <div class="water"></div>
+                        </div>
+                        <span class="map-name">Água</span>
+                    </button>
+                     <button class="map-preview-btn" data-map="predio">
+                        <div id="predio-visual" class="map-preview-visual">
+                            <div class="building-wall bw1"></div>
+                            <div class="building-wall bw2"></div>
+                            <div class="building-wall bw3"></div>
+                        </div>
+                        <span class="map-name">Prédio</span>
+                    </button>
+                    <button class="map-preview-btn" data-map="abismo">
+                        <div id="abismo-visual" class="map-preview-visual">
+                            <div class="platform p1"></div>
+                             <div class="platform p2"></div>
+                        </div>
+                        <span class="map-name">Abismo</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Contêiner Principal do Jogo -->
+            <!-- Container do Jogo -->
             <div id="game-container">
-                <!-- Barra Superior com Ícones de Categoria -->
+                <!-- O Canvas do p5.js será inserido aqui -->
                 <div id="top-bar">
-                    <!-- Botões da barra superior -->
+                    <button id="icon-favorites" title="Favoritos">♥</button>
+                    <button id="icon-items-basic" class="active-category-icon" title="Itens Básicos">📦</button>
+                    <button id="icon-firearms" title="Armas de Fogo">🔫</button>
+                    <button id="icon-people" title="Seres Vivos">🧍</button>
+                    <button id="icon-vehicles" title="Veículos">🚗</button>
+                    <button id="icon-syringes" title="Seringas">💉</button>
+                    <button id="icon-machines" title="Máquinas">🔩</button>
+                    <button id="icon-tools-category" title="Ferramentas">⚙️</button>
+                    <button id="icon-info" title="Informações">?</button>
+                    <button id="icon-save" title="Salvar">💾</button>
+                    <button id="icon-plus" title="Criar Item">+</button>
                 </div>
 
-                <!-- Barra Lateral Esquerda com Itens -->
                 <div id="left-sidebar">
-                    <!-- Filtro e grade de itens -->
+                    <div class="filter-bar">
+                        <input type="text" placeholder="filtrar">
+                        <button class="clear-filter">✖</button>
+                    </div>
+                    <div id="item-grid-wrapper">
+                        <!-- Categorias de Itens -->
+                        <div id="category-favorites-content" class="item-category">
+                            <div class="category-label">Favoritos</div>
+                            <p style="font-size: 12px; color: #888; text-align: center;">Não implementado.</p>
+                            <div class="item-grid"></div>
+                        </div>
+
+                        <div id="category-items-basic" class="item-category active">
+                            <div class="category-label">Itens</div>
+                            <div class="item-grid">
+                                <button class="item-btn active-create-type" data-tipo="mao">🖐️</button>
+                                <button class="item-btn" data-tipo="caixa">📦</button>
+                                <button class="item-btn" data-tipo="bola">🏀</button>
+                                <button class="item-btn" data-tipo="barril">🛢️</button>
+                                <button class="item-btn" data-tipo="parede">🧱</button>
+                                <button class="item-btn" data-tipo="lamina">🔪</button>
+                                <button class="item-btn" data-tipo="triangulo">🔺</button>
+                                <button class="item-btn" data-tipo="cano">➖</button>
+                                <button class="item-btn" data-tipo="cadeira">🪑</button> 
+                                <button class="item-btn" data-tipo="mesa">🪑</button> 
+                            </div>
+                        </div>
+
+                        <div id="category-firearms-content" class="item-category">
+                            <div class="category-label">Armas de Fogo</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="pistola">🔫</button>
+                            </div>
+                        </div>
+
+                        <div id="category-people-content" class="item-category">
+                            <div class="category-label">Seres Vivos</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="boneco">🧍</button>
+                            </div>
+                        </div>
+
+                        <div id="category-vehicles-content" class="item-category">
+                            <div class="category-label">Veículos</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="carro">🚗</button>
+                                <button class="item-btn" data-tipo="onibus">🚌</button>
+                            </div>
+                        </div>
+                        
+                        <div id="category-syringes-content" class="item-category">
+                            <div class="category-label">Seringas</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="seringa_vazia" title="Seringa Vazia">💉</button>
+                                <button class="item-btn" data-tipo="seringa_sangue" title="Seringa de Sangue">🩸</button>
+                                <button class="item-btn" data-tipo="seringa_acido" title="Seringa de Ácido">🧪</button>
+                                <button class="item-btn" data-tipo="seringa_adrenalina" title="Seringa de Adrenalina">⚡</button>
+                                <button class="item-btn" data-tipo="seringa_cura" title="Seringa de Cura Vital">❤️</button>
+                                <button class="item-btn" data-tipo="seringa_zumbi" title="Seringa de Zumbi">🧟</button>
+                                <button class="item-btn" data-tipo="seringa_imortalidade" title="Seringa de Imortalidade">✨</button>
+                                <button class="item-btn" data-tipo="seringa_fogo" title="Seringa de Gorse (Fogo)">🔥</button>
+                                <button class="item-btn" data-tipo="seringa_nitro" title="Seringa de Nitroglicerina">💥</button>
+                            </div>
+                        </div>
+
+                        <div id="category-machines-content" class="item-category">
+                            <div class="category-label">Máquinas</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="liquid_container" title="Contêiner de Líquido">🛢️</button>
+                                <button class="item-btn" data-tipo="gerador" title="Gerador">🔋</button>
+                            </div>
+                        </div>
+
+                        <div id="category-tools-content" class="item-category">
+                            <div class="category-label">Ferramentas</div>
+                            <div class="item-grid">
+                                <button id="slowMoButton" class="tool-btn">CÂMERA LENTA</button> 
+                                <button id="freezeToggleButton" class="tool-btn">CONGELAR</button>
+                                <button class="tool-btn" data-tipo="corda">Corda ⛓️</button> 
+                                <button class="tool-btn" data-tipo="cabo_eletrico">Cabo ⚡</button>
+                                <button class="tool-btn" data-tipo="tubo_liquido">Tubo 💧</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Barra Inferior com Ações Globais -->
                 <div id="bottom-bar">
-                    <!-- Botões de limpar, configurações, etc. -->
+                    <button id="settings-button">Configurações</button>
+                    <button id="environment-button">Ambiente</button>
+                    <button id="btnClearAll">Limpar Tudo</button>
+                    <button id="btnClearDebris">Limpar Detritos</button>
+                    <button id="btnClearLiving">Limpar Seres Vivos</button>
+                    <button id="btnClearRopes">Limpar Cabos</button> 
                 </div>
                 
-                <!-- Controles para Dispositivos Móveis -->
                 <div id="mobile-controls">
-                    <!-- Grupos de botões de controle -->
+                    <div class="control-group">
+                        <button id="btnVehicleLeft" title="Mover Veículo para Esquerda">⬅️</button>
+                        <button id="btnVehicleRight" title="Mover Veículo para Direita">➡️</button>
+                    </div>
+                    <div class="control-group">
+                        <button id="btnSlowMo" title="Câmera Lenta">🕒</button>
+                        <button id="btnZoomOut" title="Zoom Out">-</button>
+                        <button id="btnZoomIn" title="Zoom In">+</button>
+                    </div>
+                    <div class="control-group">
+                        <button id="btnShoot" title="Atirar">💥</button>
+                        <button id="btnGrabDrop" title="Pegar/Largar">✋</button>
+                        <button id="btnFreeze" title="Congelar">❄️</button>
+                        <button id="btnDonor" title="Modo Doador/Receptor">H</button>
+                    </div>
                 </div>
 
-                <!-- Painel Flutuante de Ferramentas -->
                 <div id="floating-tool-panel">
                     Clique para iniciar a corda
                 </div>
             </div>
 
-            <!-- Modais (Janelas Pop-up) -->
+            <!-- Modais do Jogo -->
             <div id="settings-modal" class="game-modal">
-                <!-- Conteúdo do modal de configurações -->
+                <div class="modal-content">
+                    <h2>Configurações</h2>
+                    <div class="settings-grid">
+                        <label>
+                            <span>Exibir Grade</span>
+                            <input type="checkbox" id="toggle-grid-cb" checked>
+                        </label>
+                        <label>
+                            <span>Exibir Sangue</span>
+                            <input type="checkbox" id="toggle-blood-cb" checked>
+                        </label>
+                        <label>
+                            <span>Controles Mobile</span>
+                            <input type="checkbox" id="toggleMobileControls">
+                        </label>
+                        <label>
+                            <span>Tela Cheia</span>
+                            <input type="checkbox" id="toggle-fullscreen-cb">
+                        </label>
+                    </div>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
             </div>
+            
             <div id="mods-modal" class="game-modal">
-                <!-- Conteúdo do modal de mods -->
+                <div class="modal-content">
+                    <h2>Mods</h2>
+                    <p>A oficina de mods não está implementada nesta versão.</p>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
             </div>
-            <!-- Outros modais... -->
+
+            <div id="environment-modal" class="game-modal">
+                <div class="modal-content">
+                    <h2>Controle de Ambiente</h2>
+                    <button id="toggle-gravity-btn">Alternar Gravidade</button>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
+            </div>
+
+            <div id="info-modal" class="game-modal">
+                <div class="modal-content">
+                    <h2>Informações</h2>
+                    <ul>
+                        <li>Mouse: Arrastar objetos (com a ferramenta Mão selecionada).</li>
+                        <li>Arrastar o fundo com a Mão para mover a câmera.</li>
+                        <li>Seringas: Crie e arremesse nos bonecos para fincar e injetar.</li>
+                        <li>Cabos/Tubos: Clique em um objeto para iniciar e em outro para conectar.</li>
+                        <li>Teclas [ e ] para controlar o zoom.</li>
+                        <li>O: Segure um objeto com o mouse e aperte 'O' para a câmera segui-lo.</li>
+                        <li>I: Segure uma seringa com o mouse e aperte 'I' para ver seu conteúdo.</li>
+                        <li>H: Segure um objeto e aperte 'H' para alternar o modo "Doador/Receptor" de líquidos.</li>
+                        <li>R: Atirar com a pistola.</li>
+                        <li>P: Alternar Câmera Lenta.</li>
+                        <li>K: Congelar/Descongelar objeto sendo arrastado.</li>
+                    </ul>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
+            </div>
+
+            <div id="save-modal" class="game-modal">
+                <div class="modal-content">
+                    <h2>Salvar Jogo</h2>
+                    <p>Funcionalidade de salvar não implementada.</p>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
+            </div>
+
+            <div id="plus-modal" class="game-modal">
+                <div class="modal-content">
+                    <h2>Criar Item</h2>
+                    <p>Use o menu lateral esquerdo para criar itens.</p>
+                    <button class="close-modal-btn">Fechar</button>
+                </div>
+            </div>
         </div>
     </div>
     
-    <!-- Bibliotecas JavaScript Externas -->
+    <!-- Scripts de Bibliotecas Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/poly-decomp/0.3.0/poly-decomp.min.js"></script>
 
-    <!-- Link para o arquivo de script principal do jogo -->
+    <!-- Link para o seu arquivo JavaScript -->
     <script src="script.js"></script>
 </body>
 </html>
