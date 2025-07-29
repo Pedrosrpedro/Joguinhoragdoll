@@ -434,6 +434,7 @@ function selectCreationType(type) {
 
 // --- p5.js Setup and Draw Loop ---
 function setup() {
+    p5.disableFriendlyErrors = true; 
     const gameContainer = document.getElementById('game-container');
     const canvas = createCanvas(1, 1); // Start with a placeholder canvas
     canvas.parent('game-container');
