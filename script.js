@@ -52,7 +52,8 @@ const DANO_CABECAMULTIPLIER = 1.5;
 const SAUDE_MINIMA_MEMBRO_NORMAL = 5; 
 const SAUDE_MINIMA_MEMBRO_CRITICO = -50; 
 
-const FORCA_TENSORA = 0.008, FORCA_PESCOCO = 0.006;
+// <<< MUDANÇA: Aumentei a força para deixar o ragdoll mais firme
+const FORCA_TENSORA = 0.02, FORCA_PESCOCO = 0.015; 
 const VELOCIDADE_ROTACAO_CONTROLADA = 0.3;
 const NOCAUTE_DURACAO = 4000; 
 const RECUPERACAO_DURACAO = 1000; 
@@ -434,7 +435,8 @@ function selectCreationType(type) {
 
 // --- p5.js Setup and Draw Loop ---
 function setup() {
-    p5.disableFriendlyErrors = true; 
+    p5.disableFriendlyErrors = true; // Desativa erros que causam problemas de permissão
+
     const gameContainer = document.getElementById('game-container');
     const canvas = createCanvas(1, 1); // Start with a placeholder canvas
     canvas.parent('game-container');
@@ -633,7 +635,6 @@ function startGame() {
     gameState = 'GAME';
     modalReturnState = 'GAME'; 
 
-    // <<< CORRIGIDO: Força um redimensionamento do canvas após o container ficar visível
     windowResized();
     
     camera.x = width / 2 - PLAYER_SPAWN_X * camera.zoom;
@@ -905,7 +906,6 @@ function atualizarRagdoll(ragdoll) {
         ragdoll.isOnFire = false; return;
     }
     
-    // <<< MODIFICADO: Death check now based on internal liquid, not separate bloodLevel
     const totalLiquid = Object.values(ragdoll.internalLiquids).reduce((a, b) => a + b, 0);
     if (totalLiquid <= 0 && !ragdoll.isPermanentlyDead) {
         if (ragdoll.deathTimer === 0) ragdoll.deathTimer = millis();
@@ -917,34 +917,46 @@ function atualizarRagdoll(ragdoll) {
         ragdoll.deathTimer = 0;
     }
 
+    // <<< MUDANÇA: Lógica de corrosão acelerada e com mais efeitos
     if (ragdoll.isCorroding) {
         if (ragdoll.corrosionLevel < 1) {
-            ragdoll.corrosionLevel += 0.0005;
+            ragdoll.corrosionLevel += 0.002; // Mais rápido
             ragdoll.composite.bodies.forEach(b => { if (b.customProps) aplicarDano(b, 0.1, b.position); });
+            // Adiciona partículas de ácido
+            if (Math.random() < 0.4) {
+                 const body = ragdoll.composite.bodies[Math.floor(random(ragdoll.composite.bodies.length))];
+                 particulas.push({ pos: createVector(body.position.x + random(-10,10), body.position.y + random(-10,10)), vel: p5.Vector.random2D().mult(random(0.1, 1)), lifespan: 120, type: 'acid'});
+            }
         } else {
             ragdoll.isCorroding = false;
+            ragdoll.skeletonType = 'acid'; // Define o tipo de esqueleto
             mudarEstado(ragdoll, 'SKELETON');
         }
     }
 
     if (ragdoll.adrenalineTimer > 0) ragdoll.adrenalineTimer -= (1000/60);
 
+    // <<< MUDANÇA: Lógica de fogo acelerada, com mais efeitos e que vira esqueleto
     if (ragdoll.isOnFire) {
         if (Math.random() < 0.1) triggerScreenShake(1.5, 5);
         aplicarDano(ragdoll.bodies.torso, 0.2); 
         aplicarDano(ragdoll.bodies.head, 0.2);
         
-        ragdoll.charring = Math.min(ragdoll.charring + 0.001, 1);
-        if (ragdoll.charring >= 1) mudarEstado(ragdoll, 'CARBONIZED');
+        ragdoll.charring = Math.min(ragdoll.charring + 0.003, 1); // Mais rápido
+        if (ragdoll.charring >= 1) {
+            ragdoll.skeletonType = 'fire'; // Define o tipo de esqueleto
+            mudarEstado(ragdoll, 'SKELETON'); // Muda para esqueleto, não carbonizado
+        }
 
-         if (Math.random() < 0.3) { 
-            const body = Math.random() < 0.5 ? ragdoll.bodies.torso : ragdoll.bodies.head;
-            particulas.push({ pos: createVector(body.position.x + random(-15,15), body.position.y + random(-15,15)), vel: p5.Vector.random2D().mult(random(0.5, 2)), lifespan: 100, type: 'fire'});
+         // Mais partículas de fogo
+         if (Math.random() < 0.6) { 
+            const body = ragdoll.composite.bodies[Math.floor(random(ragdoll.composite.bodies.length))];
+            particulas.push({ pos: createVector(body.position.x + random(-15,15), body.position.y + random(-15,15)), vel: p5.Vector.random2D().mult(random(1, 2.5)), lifespan: 100, type: 'fire'});
          }
     }
 
     if (ragdoll.estado === 'ATIVO') { 
-        const { torso, head, legLeft, legRight } = ragdoll.bodies; 
+        const { torso, head } = ragdoll.bodies; 
         const bloodRatio = (ragdoll.internalLiquids.sangue || 0) / 10;
         let fatorSaude = torso.customProps.saude / torso.customProps.saudeMaxima; 
         let bloodStrengthFactor = constrain(bloodRatio, 0.1, 1.0);
@@ -1045,12 +1057,11 @@ function stickSyringe(seringa, corpoAlvo, ponto) {
     }
 }
 
-// <<< NEW: Logic to extract a mixed sample
 function extractLiquidFromRagdoll(seringa, ragdoll, amount) {
     const totalInternalVolume = Object.values(ragdoll.internalLiquids).reduce((s, v) => s + v, 0);
-    if (totalInternalVolume <= 0) return; // Nothing to extract
+    if (totalInternalVolume <= 0) return;
 
-    seringa.customProps.liquidContents = {}; // Clear syringe first
+    seringa.customProps.liquidContents = {}; 
     let totalExtracted = 0;
 
     for (const liquidType in ragdoll.internalLiquids) {
@@ -1065,7 +1076,6 @@ function extractLiquidFromRagdoll(seringa, ragdoll, amount) {
     seringa.customProps.liquidAmount = totalExtracted;
     seringa.customProps.uses = 1;
 
-    // Update syringe color and label based on dominant liquid
     let dominantLiquid = 'vazia';
     let maxAmount = 0;
     for(const type in seringa.customProps.liquidContents) {
@@ -1087,16 +1097,13 @@ function emptySyringe(seringa) {
     seringa.customProps.liquidAmount = 0;
 }
 
-// <<< MODIFIED: Now works with internal liquid mix
 function injectSyringe(ragdoll, seringa) {
     if (!ragdoll || seringa.label === 'seringa_vazia' || ragdoll.isPermanentlyDead) return;
     
-    // Transfer liquids from syringe to ragdoll
     for (const liquidType in seringa.customProps.liquidContents) {
         const amount = seringa.customProps.liquidContents[liquidType];
         ragdoll.internalLiquids[liquidType] = (ragdoll.internalLiquids[liquidType] || 0) + amount;
         
-        // Apply immediate effects
         switch(liquidType) {
             case 'acido': ragdoll.isCorroding = true; break;
             case 'adrenalina': ragdoll.adrenalineTimer = 10000; break;
@@ -1174,7 +1181,8 @@ function createRagdoll(x, y, isPlayer) {
 
     const composite = Matter.Composite.create({bodies:[torso,head,legLeft,legRight,armLeft,armRight], constraints:[neck,hipLeft,hipRight,shoulderLeft,shoulderRight]}); 
     
-    return { composite, bodies:{torso,head,legLeft,legRight,armLeft,armRight}, isPlayer, estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, isPermanentlyDead: false }; 
+    // <<< MUDANÇA: Adiciona a propriedade skeletonType para diferenciar os esqueletos
+    return { composite, bodies:{torso,head,legLeft,legRight,armLeft,armRight}, isPlayer, estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, isPermanentlyDead: false, skeletonType: null }; 
 }
 
 function getSyringeColor(type) {
@@ -1408,7 +1416,7 @@ function desenharParticulas() {
         p.pos.add(p.vel); 
         p.lifespan-=4; 
         
-         if (p.type === 'fire' || p.type === 'explosion') p.vel.y -= (0.3 / camera.zoom); 
+        if (p.type === 'fire' || p.type === 'explosion') p.vel.y -= (0.3 / camera.zoom); 
 
         if (showBlood && p.type === 'blood') {
             const corposProximos = Matter.Query.point(Matter.Composite.allBodies(world), p.pos); 
@@ -1423,10 +1431,16 @@ function desenharParticulas() {
             particulas.splice(i, 1); 
         } else { 
             noStroke(); 
-            if (p.type === 'fire' || p.type === 'explosion') fill(random(15, 40), 100, 100, p.lifespan/150);
+            // <<< MUDANÇA: Adiciona e melhora os efeitos visuais das partículas
+            if (p.type === 'fire') fill(random(15, 40), 100, 100, p.lifespan/150);
+            else if (p.type === 'explosion') fill(random(20, 50), 100, 100, p.lifespan/100);
+            else if (p.type === 'smoke') fill(0, 0, 50, p.lifespan/255);
+            else if (p.type === 'acid') fill(100, 80, 70, p.lifespan/200);
             else if (p.color) { const c = p.color; fill(hue(c), saturation(c), brightness(c), p.lifespan/255); } 
-            else fill(0, 80, 70, p.lifespan/255); 
-            circle(p.pos.x,p.pos.y,4);
+            else fill(0, 80, 70, p.lifespan/255); // Sangue
+            
+            const particleSize = p.type === 'smoke' ? 8 : 4;
+            circle(p.pos.x, p.pos.y, particleSize);
         }
     }
 }
@@ -1464,18 +1478,24 @@ function drawBodies(bodies) {
         if (body.customProps && body.customProps.isFrozen) tint(200, 50, 100, 150);
         else noTint();
         
-        if (body.label.includes('wheel')) fill(0, 0, 20); else fill(fillColor);
-        
-        if (body.customProps && body.customProps.mode === 'donor') {
-            stroke(120, 100, 100); strokeWeight(3 / camera.zoom);
-        } else if (body.customProps && body.customProps.mode === 'receiver') {
-            stroke(200, 100, 100); strokeWeight(3 / camera.zoom);
-        } else {
-            stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
-        }
-        
+        // <<< MUDANÇA: Lógica de desenho para o esqueleto
         if (ragdoll && ragdoll.estado === 'SKELETON') {
-            noFill(); stroke(0, 0, 90); strokeWeight(4 / camera.zoom);
+            noFill();
+            if (ragdoll.skeletonType === 'fire') {
+                stroke(0, 0, 15); // Preto/carbonizado
+            } else { // Padrão ou ácido
+                stroke(0, 0, 90); // Branco
+            }
+            strokeWeight(2 / camera.zoom); // Contorno mais fino
+        } else {
+            if (body.label.includes('wheel')) fill(0, 0, 20); else fill(fillColor);
+            if (body.customProps && body.customProps.mode === 'donor') {
+                stroke(120, 100, 100); strokeWeight(3 / camera.zoom);
+            } else if (body.customProps && body.customProps.mode === 'receiver') {
+                stroke(200, 100, 100); strokeWeight(3 / camera.zoom);
+            } else {
+                stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
+            }
         }
 
         if (body.circleRadius) circle(0,0, body.circleRadius * 2);
@@ -1545,14 +1565,15 @@ function processExplosions() {
                 Matter.Body.applyForce(body, body.position, Matter.Vector.mult(Matter.Vector.normalise(forceVec), forceMagnitude));
                 if(body.customProps && body.customProps.isPlayer !== undefined) aplicarDano(body, 200 / (distance * 0.1), body.position);
             });
-            for(let j=0; j<50; j++) particulas.push({ pos: createVector(exp.pos.x, exp.pos.y), vel: p5.Vector.random2D().mult(random(5, 15)), lifespan: 150, type: 'explosion' });
+            // <<< MUDANÇA: Mais partículas de explosão e fumaça
+            for(let j=0; j<80; j++) particulas.push({ pos: createVector(exp.pos.x, exp.pos.y), vel: p5.Vector.random2D().mult(random(5, 18)), lifespan: 150, type: 'explosion' });
+            for(let k=0; k<40; k++) particulas.push({ pos: createVector(exp.pos.x, exp.pos.y), vel: p5.Vector.random2D().mult(random(1, 6)), lifespan: 255, type: 'smoke' });
         }
         exp.life--;
         if (exp.life <= 0) explosions.splice(i, 1);
     }
 }
 
-// <<< REFORMULADO: Liquid System Overhaul
 function updateLiquidSystem() {
     cordas.forEach(cable => {
         if (cable.label !== 'tubo_liquido_composite') return;
@@ -1565,7 +1586,7 @@ function updateLiquidSystem() {
         if (bodyA.customProps.mode === 'donor' && bodyB.customProps.mode === 'receiver') {
             source = bodyA; dest = bodyB;
         } else if (bodyB.customProps.mode === 'donor' && bodyA.customProps.mode === 'receiver') {
-            source = bodyB; dest = a;
+            source = bodyB; dest = bodyA;
         }
 
         if (source && dest) {
@@ -1584,10 +1605,10 @@ function transferLiquid(source, dest) {
     if (sourceRagdoll) {
         sourceLiquids = sourceRagdoll.internalLiquids;
         sourceTotalVolume = Object.values(sourceLiquids).reduce((s, v) => s + v, 0);
-    } else if (source.customProps.liquids) { // It's a container
+    } else if (source.customProps.liquids) {
         sourceLiquids = source.customProps.liquids;
         sourceTotalVolume = source.customProps.liquidAmount;
-    } else if (source.customProps.liquidContents) { // It's a syringe
+    } else if (source.customProps.liquidContents) {
         sourceLiquids = source.customProps.liquidContents;
         sourceTotalVolume = source.customProps.liquidAmount;
     }
@@ -1608,7 +1629,6 @@ function transferLiquid(source, dest) {
         const proportion = sourceLiquids[liquidType] / sourceTotalVolume;
         const liquidAmountToTransfer = amountToTransfer * proportion;
 
-        // Update Source
         if (sourceRagdoll) {
             sourceRagdoll.internalLiquids[liquidType] -= liquidAmountToTransfer;
         } else {
@@ -1616,7 +1636,6 @@ function transferLiquid(source, dest) {
             source.customProps.liquidAmount -= liquidAmountToTransfer;
         }
 
-        // Update Destination
         if (destIsContainer) {
             dest.customProps.liquids[liquidType] = (dest.customProps.liquids[liquidType] || 0) + liquidAmountToTransfer;
         } else if (destIsSyringe) {
