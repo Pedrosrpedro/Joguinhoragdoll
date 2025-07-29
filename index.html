@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ragdoll Sandbox</title>
+    
+    <!-- Importação de Fontes -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Link para o arquivo de estilo externo -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Wrapper para manter a proporção e centralizar o jogo -->
+    <div id="aspect-ratio-wrapper">
+        <!-- Contêiner raiz que segura todas as telas -->
+        <div id="root-container">
+
+            <!-- Tela de Menu Principal -->
+            <div id="main-menu">
+                <div class="main-menu-list">
+                    <button id="main-menu-play">jogar</button>
+                    <button id="main-menu-settings">configurações</button>
+                    <button id="main-menu-mods">mods</button>
+                    <button id="main-menu-information">informações</button>
+                    <button id="main-menu-quit">sair</button>
+                </div>
+                <div class="main-menu-title">
+                    <h1>Ragdoll Sandbox</h1>
+                </div>
+            </div>
+
+            <!-- Tela de Seleção de Mapa -->
+            <div id="map-selection-screen">
+                <h2>Selecione um Mapa</h2>
+                <div class="map-grid-container">
+                    <!-- Botões dos mapas -->
+                </div>
+            </div>
+
+            <!-- Contêiner Principal do Jogo -->
+            <div id="game-container">
+                <!-- Barra Superior com Ícones de Categoria -->
+                <div id="top-bar">
+                    <!-- Botões da barra superior -->
+                </div>
+
+                <!-- Barra Lateral Esquerda com Itens -->
+                <div id="left-sidebar">
+                    <!-- Filtro e grade de itens -->
+                </div>
+
+                <!-- Barra Inferior com Ações Globais -->
+                <div id="bottom-bar">
+                    <!-- Botões de limpar, configurações, etc. -->
+                </div>
+                
+                <!-- Controles para Dispositivos Móveis -->
+                <div id="mobile-controls">
+                    <!-- Grupos de botões de controle -->
+                </div>
+
+                <!-- Painel Flutuante de Ferramentas -->
+                <div id="floating-tool-panel">
+                    Clique para iniciar a corda
+                </div>
+            </div>
+
+            <!-- Modais (Janelas Pop-up) -->
+            <div id="settings-modal" class="game-modal">
+                <!-- Conteúdo do modal de configurações -->
+            </div>
+            <div id="mods-modal" class="game-modal">
+                <!-- Conteúdo do modal de mods -->
+            </div>
+            <!-- Outros modais... -->
+        </div>
+    </div>
+    
+    <!-- Bibliotecas JavaScript Externas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/poly-decomp/0.3.0/poly-decomp.min.js"></script>
+
+    <!-- Link para o arquivo de script principal do jogo -->
+    <script src="script.js"></script>
+</body>
+</html>
