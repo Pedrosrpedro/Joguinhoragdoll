@@ -3,15 +3,14 @@
 
 let engine, world, runner, playerRagdoll, mouseSpring = null;
 let objetos = [], particulas = [], outrosRagdolls = [], manchas = [], cordas = [], explosions = [];
-// --- NOVO: Variáveis para novos sistemas ---
 let propulsores = [], pistoes = [], ativadores = [], c4s = [];
+let teleporters = [];
 
 let objetoParaCriar = 'mao';
 let activePistol = null; 
 let activeVehicle = null;
 let waterZones = [];
 let screenShake = { intensity: 0, duration: 0 };
-
 
 let gameState = 'MENU';
 let modalReturnState = 'MENU';
@@ -35,6 +34,16 @@ let mobileControlsEnabled = false;
 let vehicleInput = 0;
 let mobileGrabbing = false;
 
+// --- NOVO: Variáveis para sistema de salvar/selecionar ---
+let isSelecting = false;
+let selectionBox = { start: null, end: null };
+let selectedObjects = { bodies: [], constraints: [] };
+let constructionToSpawn = null;
+let portalParaLinkar = null;
+
+// --- NOVO: Variáveis para Sprites ---
+let tijolosSprite, portalSprite, caixaSprite;
+
 
 // Game constants
 let GROUND_Y = 2000;
@@ -44,7 +53,6 @@ let PLAYER_SPAWN_Y = GROUND_Y - 150;
 const VEHICLE_TORQUE = 0.01; 
 const VEHICLE_MAX_SPEED = 0.6;
 const VEHICLE_BRAKE_DAMPING = 0.9;
-// --- NOVO: Constante de força para a marreta ---
 const FORCA_MARRETA = 0.5;
 
 const LIMIAR_DE_DANO_VELOCIDADE = 5.0, LIMIAR_EMPALAMENTO = 15.0;
@@ -66,13 +74,19 @@ const FORCA_RECUPERACAO_VERTICAL = 0.0005;
 let originalGravityY = 2.5; 
 let currentGravityY = 2.5; 
 
+// --- NOVO: p5.js Preload Function ---
+function preload() {
+    // Carrega as imagens antes do jogo iniciar.
+    // Certifique-se que os nomes dos arquivos estão corretos!
+    tijolosSprite = loadImage('parede_tijolos.png');
+    portalSprite = loadImage('portal.png');
+    caixaSprite = loadImage('caixa.png');
+}
+
 // --- Core Game Functions ---
 function mudarEstado(ragdoll, novoEstado) { 
     if(!ragdoll || ragdoll.estado === novoEstado) return; 
-    
-    // Um boneco petrificado só pode ser curado, não pode mudar para outro estado.
     if (ragdoll.isPetrified && novoEstado !== 'ATIVO') return;
-
     ragdoll.estado = novoEstado; 
     
     if (novoEstado !== 'MORTO' && novoEstado !== 'CARBONIZED') {
@@ -246,8 +260,7 @@ function resetarMundo() {
     gerarMapa(currentMapType);
     
     objetos = []; particulas = []; outrosRagdolls = []; manchas = []; cordas = []; explosions = [];
-    // --- NOVO ---
-    propulsores = []; pistoes = []; ativadores = []; c4s = [];
+    propulsores = []; pistoes = []; ativadores = []; c4s = []; teleporters = [];
 
     activePistol = null; activeVehicle = null; playerRagdoll = null; 
 
@@ -275,8 +288,7 @@ function clearAllBodies() {
         playerRagdoll = null;
     }
     activePistol = null; manchas = []; particulas = []; explosions = [];
-    // --- NOVO ---
-    propulsores = []; pistoes = []; ativadores = []; c4s = [];
+    propulsores = []; pistoes = []; ativadores = []; c4s = []; teleporters = [];
 }
 
 function clearDebris() {
@@ -285,8 +297,7 @@ function clearDebris() {
         if (body.isStatic || (body.customProps && body.customProps.isPlayer !== undefined) ) continue;
         if ( (body.parent.label && (body.parent.label.includes('carro') || body.parent.label.includes('onibus'))) || (body.label && (body.label.includes('car') || body.label.includes('bus'))) ) continue;
         if (body.label.includes('liquid_container') || body.label.includes('gerador') ) continue;
-        // --- NOVO: Não limpar as novas máquinas ---
-        if (['propulsor', 'pistao_base', 'pistao_braco', 'botao', 'alavanca', 'c4', 'granada'].includes(body.label)) continue;
+        if (['propulsor', 'pistao_base', 'pistao_braco', 'botao', 'alavanca', 'c4', 'granada', 'portal'].includes(body.label)) continue;
         objectsToRemove.push(body);
     }
     objectsToRemove.forEach(body => Matter.World.remove(world, body));
@@ -313,31 +324,36 @@ function setupControles() {
     document.getElementById('icon-favorites').addEventListener('click', () => switchCategoryAndToggleSidebar('category-favorites-content', 'icon-favorites')); 
     document.getElementById('icon-items-basic').addEventListener('click', () => switchCategoryAndToggleSidebar('category-items-basic', 'icon-items-basic'));
     document.getElementById('icon-firearms').addEventListener('click', () => switchCategoryAndToggleSidebar('category-firearms-content', 'icon-firearms'));
-    // --- ADICIONADO AQUI ---
     document.getElementById('icon-explosives').addEventListener('click', () => switchCategoryAndToggleSidebar('category-explosives-content', 'icon-explosives'));
     document.getElementById('icon-people').addEventListener('click', () => switchCategoryAndToggleSidebar('category-people-content', 'icon-people'));
     document.getElementById('icon-vehicles').addEventListener('click', () => switchCategoryAndToggleSidebar('category-vehicles-content', 'icon-vehicles')); 
     document.getElementById('icon-syringes').addEventListener('click', () => switchCategoryAndToggleSidebar('category-syringes-content', 'icon-syringes'));
     document.getElementById('icon-machines').addEventListener('click', () => switchCategoryAndToggleSidebar('category-machines-content', 'icon-machines'));
     document.getElementById('icon-tools-category').addEventListener('click', () => switchCategoryAndToggleSidebar('category-tools-content', 'icon-tools-category'));
+    
     document.getElementById('icon-info').addEventListener('click', () => { 
         modalReturnState = 'GAME'; 
         const leftSidebar = document.getElementById('left-sidebar');
         if (!leftSidebar.classList.contains('hidden')) leftSidebar.classList.add('hidden'); 
         showModal('info-modal'); 
     }); 
+    
     document.getElementById('icon-save').addEventListener('click', () => {
         modalReturnState = 'GAME';
         const leftSidebar = document.getElementById('left-sidebar');
         if (!leftSidebar.classList.contains('hidden')) leftSidebar.classList.add('hidden'); 
-        showModal('save-modal'); 
+        showModal('save-modal');
+        populateSaveModal();
     }); 
+    
     document.getElementById('icon-plus').addEventListener('click', () => {
         modalReturnState = 'GAME';
         const leftSidebar = document.getElementById('left-sidebar');
         if (!leftSidebar.classList.contains('hidden')) leftSidebar.classList.add('hidden'); 
         showModal('plus-modal'); 
     });
+
+    document.getElementById('save-selection-btn').addEventListener('click', saveCurrentSelection);
 
 
     document.querySelectorAll('.item-btn, .tool-btn').forEach(btn => { 
@@ -378,7 +394,6 @@ function setupControles() {
     document.getElementById('btnFreeze').addEventListener('click', (e) => { e.preventDefault(); mobileFreeze(); });
     document.getElementById('btnDonor').addEventListener('click', (e) => { e.preventDefault(); mobileToggleDonor(); });
     
-    // Adicione no final da função setupControles()
     document.getElementById('btnMobileDetonate').addEventListener('click', (e) => {
         e.preventDefault();
         detonateAllC4s();
@@ -386,7 +401,6 @@ function setupControles() {
 
     document.getElementById('btnMobileActivate').addEventListener('click', (e) => {
         e.preventDefault();
-        // Lógica similar à tecla F, mas no centro da tela
         const centerScreen = screenToWorld(width/2, height/2);
         const bodiesNearby = Matter.Query.point(Matter.Composite.allBodies(world), centerScreen);
         const machine = bodiesNearby.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
@@ -424,7 +438,6 @@ function switchCategory(contentCategoryId) {
     let topBarIconElement = null;
     if (contentCategoryId === 'category-items-basic') topBarIconElement = document.getElementById('icon-items-basic');
     else if (contentCategoryId === 'category-firearms-content') topBarIconElement = document.getElementById('icon-firearms');
-    // --- ADICIONADO AQUI ---
     else if (contentCategoryId === 'category-explosives-content') topBarIconElement = document.getElementById('icon-explosives');
     else if (contentCategoryId === 'category-people-content') topBarIconElement = document.getElementById('icon-people');
     else if (contentCategoryId === 'category-vehicles-content') topBarIconElement = document.getElementById('icon-vehicles'); 
@@ -488,7 +501,8 @@ function setup() {
     canvas.parent('game-container');
     const uiElements = [
         document.getElementById('top-bar'), document.getElementById('left-sidebar'), document.getElementById('bottom-bar'),
-        document.getElementById('mobile-controls'), document.getElementById('floating-tool-panel')
+        document.getElementById('mobile-controls'), document.getElementById('floating-tool-panel'),
+        document.getElementById('save-selection-btn')
     ];
     uiElements.forEach(el => { if (el) gameContainer.appendChild(el); });
 
@@ -595,20 +609,19 @@ function keyPressed() {
         if (cameraFollowTarget) cameraFollowTarget = null;
         else if (mouseSpring && mouseSpring.bodyA) cameraFollowTarget = mouseSpring.bodyA;
     }
-    // --- NOVO: Tecla 'B' para detonar C4 ---
     else if (key === 'b' || key === 'B') {
         detonateAllC4s();
     }   
        
-    // --- NOVO: Tecla de ativação manual 'F' ---
     else if (key === 'f' || key === 'F') {
         const worldMouse = screenToWorld(mouseX, mouseY);
         const bodiesUnderMouse = Matter.Query.point(Matter.Composite.allBodies(world), worldMouse);
+        
         const machine = bodiesUnderMouse.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
-
         if (machine) {
-            machine.customProps.isActive = !machine.customProps.isActive; // Inverte o estado
+            machine.customProps.isActive = !machine.customProps.isActive; 
             showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
+            return;
         }
     }
 }
@@ -663,7 +676,6 @@ function toggleFreeze() {
     }
 }
 
-// --- MODIFICADO: Função de mostrar modal aprimorada ---
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -761,7 +773,7 @@ function draw() {
         }
     }
     
-    // --- NOVO: Atualiza todos os novos sistemas a cada frame ---
+    updateTeleporters();
     updateElectricitySystem();
     updateThrusters();
     updatePistons();
@@ -828,15 +840,25 @@ function draw() {
     }
     
     desenharParticulas();
-    const todasAsJuntas = Matter.Composite.allConstraints(world);
 
     drawBodies(allBodies);
-    drawConstraints(); // <-- Mude aqui!
+    drawConstraints(); 
     desenharUI();
 
     pop(); // End world camera view
 
     // Screen-space UI
+    if (isSelecting && selectionBox.start) {
+        push();
+        const startScreen = { x: (selectionBox.start.x * camera.zoom) + camera.x, y: (selectionBox.start.y * camera.zoom) + camera.y };
+        const endScreen = { x: mouseX, y: mouseY };
+        fill(150, 80, 80, 0.3);
+        stroke(150, 80, 100);
+        strokeWeight(1);
+        rectMode(CORNERS);
+        rect(startScreen.x, startScreen.y, endScreen.x, endScreen.y);
+        pop();
+    }
     if (mouseSpring && mouseSpring.bodyA.label === 'liquid_container') {
         drawContainerUI(mouseSpring.bodyA);
     }
@@ -849,6 +871,34 @@ function draw() {
 function handleCollisions(event) { 
     for (const pair of event.pairs) { 
         if (!pair.collision) continue; 
+        
+        // --- LÓGICA DO TELETRANSPORTADOR ---
+        const ePortalA = pair.bodyA.label === 'portal';
+        const ePortalB = pair.bodyB.label === 'portal';
+
+        if (ePortalA || ePortalB) {
+            const portal = ePortalA ? pair.bodyA : pair.bodyB;
+            const otherBody = ePortalA ? pair.bodyB : pair.bodyA;
+            
+            if (otherBody.isStatic || otherBody.isSensor) continue;
+
+            const props = portal.customProps;
+            if (props.isLinked && props.cooldown === 0) {
+                const targetPortal = teleporters.find(p => p.id === props.linkedTo);
+                if (targetPortal) {
+                    const vel = Matter.Body.getVelocity(otherBody);
+                    const angVel = otherBody.angularVelocity;
+                    Matter.Body.setPosition(otherBody, { x: targetPortal.position.x, y: targetPortal.position.y - 30 });
+                    Matter.Body.setVelocity(otherBody, vel);
+                    Matter.Body.setAngularVelocity(otherBody, angVel);
+
+                    props.cooldown = 20; 
+                    targetPortal.customProps.cooldown = 20;
+                }
+            }
+            continue; // Portais não causam dano, então podemos pular o resto.
+        }
+
         const velRelativa = Matter.Vector.magnitude(Matter.Vector.sub(pair.bodyA.velocity, pair.bodyB.velocity)); 
         
         const eOrganicoA = pair.bodyA.customProps && pair.bodyA.customProps.isPlayer !== undefined; 
@@ -859,8 +909,6 @@ function handleCollisions(event) {
         const eSeringaB = pair.bodyB.label && pair.bodyB.label.startsWith('seringa_');
         const eBulletA = pair.bodyA.label === 'bullet';
         const eBulletB = pair.bodyB.label === 'bullet';
-
-        // --- NOVO: Variáveis para novos objetos ---
         const eC4A = pair.bodyA.label === 'c4';
         const eC4B = pair.bodyB.label === 'c4';
         const eGranadaA = pair.bodyA.label === 'granada';
@@ -868,14 +916,12 @@ function handleCollisions(event) {
         const eMarretaA = pair.bodyA.label === 'marreta';
         const eMarretaB = pair.bodyB.label === 'marreta';
 
-        // --- NOVO: Lógica de colisão para C4 e Granada ---
         if(eC4A && pair.bodyA.customProps.isSticky) handleStickyCollision(pair.bodyA, pair.bodyB, pair.collision.supports[0]);
         if(eC4B && pair.bodyB.customProps.isSticky) handleStickyCollision(pair.bodyB, pair.bodyA, pair.collision.supports[0]);
         
-        if (eGranadaA && velRelativa > 10) pair.bodyA.customProps.timer = 1; // Explode com impacto forte
+        if (eGranadaA && velRelativa > 10) pair.bodyA.customProps.timer = 1;
         if (eGranadaB && velRelativa > 10) pair.bodyB.customProps.timer = 1;
 
-        // --- NOVO: Lógica para a marreta ---
         if ((eMarretaA && eOrganicoB) || (eMarretaB && eOrganicoA)) {
             const marreta = eMarretaA ? pair.bodyA : pair.bodyB;
             const target = eMarretaA ? pair.bodyB : pair.bodyA;
@@ -886,7 +932,6 @@ function handleCollisions(event) {
         const ragdollA = eOrganicoA ? encontrarRagdollPorCorpo(pair.bodyA) : null;
         const ragdollB = eOrganicoB ? encontrarRagdollPorCorpo(pair.bodyB) : null;
 
-        // --- NOVO: Lógica de quebra para ragdolls petrificados ---
         if (ragdollA && ragdollA.isPetrified && velRelativa > 25) {
             shatterRagdoll(ragdollA, pair.collision.supports[0]);
             continue; 
@@ -957,6 +1002,13 @@ function handleCollisions(event) {
             if(eOrganicoA) aplicarDano(pair.bodyA, dano, pontoImpacto, false); 
             if(eOrganicoB) aplicarDano(pair.bodyB, dano, pontoImpacto, false); 
             if (pontoImpacto && (eOrganicoA || eOrganicoB)) spawnSangue(pontoImpacto.x, pontoImpacto.y, velRelativa); 
+
+            if (pair.bodyA.customProps && pair.bodyA.customProps.vida) {
+                aplicarDanoObjeto(pair.bodyA, dano);
+            }
+            if (pair.bodyB.customProps && pair.bodyB.customProps.vida) {
+                aplicarDanoObjeto(pair.bodyB, dano);
+            }
         } 
 
         const cabecaA = pair.bodyA.label === 'head', cabecaB = pair.bodyB.label === 'head'; 
@@ -1006,6 +1058,34 @@ function aplicarDano(corpo, dano, pontoImpacto, isBulletDamage = false) {
     } 
 }
 
+function aplicarDanoObjeto(corpo, dano) {
+    if (!corpo.customProps || corpo.customProps.vida <= 0) return;
+
+    corpo.customProps.vida -= dano;
+
+    if (corpo.customProps.vida <= 0) {
+        spawnDebris(corpo.position, corpo.customProps.material, corpo.velocity);
+        Matter.World.remove(world, corpo);
+        objetos = objetos.filter(o => o.id !== corpo.id);
+    }
+}
+
+function spawnDebris(position, material, velocity) {
+    const numParticulas = material === 'madeira' ? 10 : 20;
+    const cor = material === 'madeira' ? color(30, 60, 50) : color(20, 70, 40);
+    const forca = velocity ? Matter.Vector.magnitude(velocity) : 2;
+
+    for (let i = 0; i < numParticulas; i++) {
+        particulas.push({
+            pos: createVector(position.x, position.y),
+            vel: p5.Vector.random2D().mult(random(1, forca * 0.5)),
+            lifespan: 150,
+            color: cor,
+            type: 'debris'
+        });
+    }
+}
+
 function atualizarRagdoll(ragdoll) { 
     if (!ragdoll || !ragdoll.bodies.torso || !ragdoll.bodies.head) return; 
     
@@ -1014,7 +1094,6 @@ function atualizarRagdoll(ragdoll) {
         return;
     }
 
-    // --- CORREÇÃO: Impede que a lógica de atualização normal seja executada em estados finais ---
     if (ragdoll.estado === 'CARBONIZED' || ragdoll.estado === 'SKELETON' || ragdoll.estado === 'PETRIFICADO') {
         ragdoll.isOnFire = false; 
         return;
@@ -1033,7 +1112,6 @@ function atualizarRagdoll(ragdoll) {
 
     if (ragdoll.antiGravityTimer > 0) {
         ragdoll.antiGravityTimer -= (1000/60);
-        // --- CORREÇÃO: Aplica uma força que apenas anula a gravidade, causando um efeito de flutuação ---
         const antiGravForce = -world.gravity.y;
         ragdoll.composite.bodies.forEach(b => {
              Matter.Body.applyForce(b, b.position, {x: 0, y: antiGravForce * b.mass});
@@ -1098,9 +1176,18 @@ function mousePressed() {
     if (gameState !== 'GAME') return;
 
     const clickedElement = event.target;
-    if (clickedElement.closest('#top-bar, #left-sidebar, #bottom-bar, #mobile-controls')) return; 
+    if (clickedElement.closest('#top-bar, #left-sidebar, #bottom-bar, #mobile-controls, #save-selection-btn')) return; 
 
     const worldMouse = screenToWorld(mouseX, mouseY);
+    
+    if (constructionToSpawn) {
+        spawnConstruction(constructionToSpawn, worldMouse);
+        constructionToSpawn = null; 
+        showNotification("Construção carregada!");
+        selectCreationType('mao');
+        return;
+    }
+    
     const allBodies = Matter.Composite.allBodies(world);
     const bodiesUnderMouse = Matter.Query.point(allBodies, worldMouse);
     const clickedBody = bodiesUnderMouse.find(b => !b.isStatic);
@@ -1114,9 +1201,13 @@ function mousePressed() {
             panStart = { x: mouseX, y: mouseY };
             cameraFollowTarget = null;
         }
-    } 
-    // --- MODIFICADO: Adiciona novas ferramentas à lógica de conexão ---
-    else if (['corda', 'cabo_eletrico', 'tubo_liquido', 'mola', 'prego'].includes(objetoParaCriar)) { 
+    } else if (objetoParaCriar === 'selecionar') {
+        isSelecting = true;
+        selectionBox.start = worldMouse;
+        selectionBox.end = worldMouse;
+        selectedObjects = { bodies: [], constraints: [] };
+        document.getElementById('save-selection-btn').style.display = 'none';
+    } else if (['corda', 'cabo_eletrico', 'tubo_liquido', 'mola', 'prego'].includes(objetoParaCriar)) { 
         if (objetoParaCriar === 'prego') {
              if (clickedBody) createWeld(clickedBody, worldMouse);
              return;
@@ -1144,6 +1235,12 @@ function mousePressed() {
 
 function mouseDragged() { 
     if (gameState !== 'GAME') return;
+    
+    if (isSelecting) {
+        selectionBox.end = screenToWorld(mouseX, mouseY);
+        return;
+    }
+    
     if (isPanning) {
         cameraFollowTarget = null;
         camera.x += mouseX - panStart.x;
@@ -1160,6 +1257,18 @@ function mouseDragged() {
 
 function mouseReleased() { 
     if (gameState !== 'GAME') return;
+    
+    if (isSelecting) {
+        isSelecting = false;
+        selectObjectsInBox();
+        if (selectedObjects.bodies.length > 0) {
+            const btn = document.getElementById('save-selection-btn');
+            btn.style.display = 'block';
+            btn.style.left = `${mouseX}px`;
+            btn.style.top = `${mouseY - 50}px`;
+        }
+    }
+    
     isPanning = false;
     if (mouseSpring) {
         Matter.World.remove(world,mouseSpring); 
@@ -1248,20 +1357,19 @@ function injectSyringe(ragdoll, seringa) {
                  ragdoll.internalLiquids = { sangue: 10 };
                  ragdoll.composite.bodies.forEach(b => { 
                      if (b.customProps) b.customProps.saude = b.customProps.saudeMaxima; 
-                     // --- CORREÇÃO: Reverte a densidade da petrificação ---
                      Matter.Body.setDensity(b, 0.002);
                  });
                  ragdoll.isCorroding = false; ragdoll.corrosionLevel = 0;
-                 ragdoll.isImmortal = false; // Garante que a imortalidade da petrificação seja removida
+                 ragdoll.isImmortal = false; 
                  ragdoll.isPetrified = false; 
-                 if(ragdoll.scale !== 1.0) scaleRagdoll(ragdoll, 1.0 / ragdoll.scale); // Reset scale
+                 if(ragdoll.scale !== 1.0) scaleRagdoll(ragdoll, 1.0 / ragdoll.scale);
                  mudarEstado(ragdoll, 'ATIVO');
                  break;
             case 'zumbi': mudarEstado(ragdoll, 'ZUMBI'); break;
             case 'imortalidade': ragdoll.isImmortal = true; break;
             case 'fogo': if (ragdoll.estado !== 'SKELETON') ragdoll.isOnFire = true; break;
             case 'nitro': ragdoll.isVolatile = true; break;
-            case 'anti_gravidade': ragdoll.antiGravityTimer = 15000; break; // 15 segundos
+            case 'anti_gravidade': ragdoll.antiGravityTimer = 15000; break;
             case 'encolher': scaleRagdoll(ragdoll, 0.5); break;
             case 'crescer': scaleRagdoll(ragdoll, 2.0); break;
             case 'petrificar': petrifyRagdoll(ragdoll); break;
@@ -1345,7 +1453,6 @@ function getSyringeColor(type) {
     }
 }
 
-// --- MODIFICADO: Lógica de criação de objetos ---
 function criarObjeto(tipo, x, y) { 
     let novoObjeto; 
     let options = {restitution:0.5, friction:0.5, customProps: {cor: color(random(360), 60, 90), isFrozen: false, isStuck: false, mode: 'receiver'}}; 
@@ -1359,10 +1466,11 @@ function criarObjeto(tipo, x, y) {
         novoObjeto = Matter.Bodies.rectangle(x, y, 8, 40, options);
     } else {
         switch(tipo) { 
-            case 'mao': return; 
-            case 'caixa': novoObjeto=Matter.Bodies.rectangle(x,y,40,40,{...options, density: 0.001}); break; 
+            case 'mao': case 'selecionar': return; 
+            case 'caixa': novoObjeto=Matter.Bodies.rectangle(x,y,60,60,{...options, density: 0.002, customProps: {...options.customProps, material: 'madeira', vida: 50, vidaMaxima: 50, sprite: caixaSprite }}); break; 
+            case 'parede_tijolos': novoObjeto=Matter.Bodies.rectangle(x,y,40,150,{...options, density: 0.01, label: 'parede_tijolos', customProps: {...options.customProps, material: 'tijolo', vida: 250, vidaMaxima: 250, sprite: tijolosSprite }}); break;
             case 'bola': novoObjeto=Matter.Bodies.circle(x,y,25,{...options, density: 0.0008}); break; 
-            case 'parede': novoObjeto=Matter.Bodies.rectangle(x,y,20,150,options); break; 
+            case 'parede': novoObjeto=Matter.Bodies.rectangle(x,y,20,150,{...options, density: 0.008, customProps: {...options.customProps, material: 'madeira', vida: 150, vidaMaxima: 150 }}); break; 
             case 'lamina': 
                 novoObjeto = Matter.Bodies.fromVertices(x, y, [Matter.Vertices.fromPath('0 0  100 0  120 10  100 20  0 20')], { ...options, density:0.01, label: 'lamina' }); 
                 break; 
@@ -1373,11 +1481,9 @@ function criarObjeto(tipo, x, y) {
                 novoObjeto = Matter.Bodies.fromVertices(x, y, [Matter.Vertices.fromPath('0 10 80 10 80 0 100 0 100 20 80 20 80 30 60 30 60 20 0 20')], { ...options, density: 0.005, label: 'pistola', customProps: { ...options.customProps, cor: color(0, 0, 30) } });
                 activePistol = novoObjeto; 
                 break;
-            // --- NOVO: Armas corpo a corpo ---
             case 'marreta':
                 novoObjeto = Matter.Bodies.rectangle(x, y, 100, 30, { ...options, density: 0.05, label: 'marreta', customProps: { ...options.customProps, cor: color(0, 0, 50) }});
                 break;
-            // --- NOVO: Explosivos ---
             case 'granada':
                 novoObjeto = Matter.Bodies.circle(x, y, 15, { ...options, density: 0.01, label: 'granada', customProps: { ...options.customProps, cor: color(120, 60, 40), timer: 200, primed: true }});
                 break;
@@ -1388,7 +1494,6 @@ function criarObjeto(tipo, x, y) {
             case 'detonador':
                 showNotification("Detonador equipado! Pressione 'B' para explodir.", 4000);
                 return;
-            // --- NOVO: Máquinas e Eletrônicos ---
             case 'propulsor':
                 novoObjeto = Matter.Bodies.rectangle(x, y, 20, 50, { ...options, density: 0.008, label: 'propulsor', customProps: { ...options.customProps, cor: color(0, 0, 60), isPowered: false, isActive: false, force: 0.002 }});
                 propulsores.push(novoObjeto);
@@ -1412,6 +1517,19 @@ function criarObjeto(tipo, x, y) {
                  Matter.World.add(world, [alavancaBase, alavancaJunta]);
                  ativadores.push(novoObjeto);
                  break;
+            case 'portal':
+                novoObjeto = Matter.Bodies.rectangle(x, y, 120, 40, { isStatic: true, isSensor: true, label: 'portal', customProps: { cor: color(240, 70, 90), isLinked: false, linkedTo: null, cooldown: 0, sprite: portalSprite }});
+                teleporters.push(novoObjeto);
+                if (teleporters.length % 2 === 0) {
+                    const portalA = teleporters[teleporters.length - 2];
+                    const portalB = teleporters[teleporters.length - 1];
+                    portalA.customProps.linkedTo = portalB.id;
+                    portalB.customProps.linkedTo = portalA.id;
+                    portalA.customProps.isLinked = true;
+                    portalB.customProps.isLinked = true;
+                     showNotification("Par de portais linkado!", 3000);
+                }
+                break;
             case 'boneco': 
                 const novoRagdoll=createRagdoll(x,y,false); 
                 outrosRagdolls.push(novoRagdoll); 
@@ -1629,12 +1747,11 @@ function desenharParticulas() {
             else if (p.type === 'explosion') fill(random(20, 50), 100, 100, p.lifespan/100);
             else if (p.type === 'smoke') fill(0, 0, 50, p.lifespan/255);
             else if (p.type === 'acid') fill(100, 80, 70, p.lifespan/200);
-            // --- NOVO: Desenha as partículas de pedra ---
             else if (p.type === 'stone') fill(0, 0, random(30, 50), p.lifespan/255);
             else if (p.color) { const c = p.color; fill(hue(c), saturation(c), brightness(c), p.lifespan/255); } 
             else fill(0, 80, 70, p.lifespan/255);
             
-            const particleSize = p.type === 'smoke' ? 8 : 4;
+            const particleSize = p.type === 'smoke' ? 8 : (p.type === 'debris' ? 6 : 4);
             circle(p.pos.x, p.pos.y, particleSize);
         }
     }
@@ -1642,6 +1759,33 @@ function desenharParticulas() {
 
 function drawBodies(bodies) {
     for (let body of bodies) {
+        
+        if (body.customProps && body.customProps.sprite) {
+            push();
+            translate(body.position.x, body.position.y);
+            rotate(body.angle);
+            imageMode(CENTER);
+            
+            if (body.customProps.vida) {
+                const vidaRatio = body.customProps.vida / body.customProps.vidaMaxima;
+                tint(255, 255 * vidaRatio, 255 * vidaRatio);
+            }
+            if (body.label === 'portal' && body.customProps.isLinked) {
+                // Efeito de brilho para portais linkados
+                drawingContext.shadowBlur = 20;
+                drawingContext.shadowColor = 'cyan';
+            }
+
+            const bodyWidth = body.bounds.max.x - body.bounds.min.x;
+            const bodyHeight = body.bounds.max.y - body.bounds.min.y;
+            image(body.customProps.sprite, 0, 0, bodyWidth, bodyHeight);
+            
+            noTint();
+            drawingContext.shadowBlur = 0;
+            pop();
+            continue; 
+        }
+        
         const ragdoll = encontrarRagdollPorCorpo(body);
         let fillColor = (body.customProps && body.customProps.cor) ? body.customProps.cor : color(0, 0, 80);
 
@@ -1673,52 +1817,45 @@ function drawBodies(bodies) {
 
         push();
         translate(body.position.x, body.position.y); rotate(body.angle);
-        if (body.customProps && body.customProps.isFrozen) tint(200, 50, 100, 150);
-        else noTint();
         
+        if (selectedObjects.bodies.includes(body)) {
+            stroke(60, 100, 100); // Amarelo para selecionado
+            strokeWeight(3 / camera.zoom);
+        } else if (body.customProps && body.customProps.isFrozen) {
+            tint(200, 50, 100, 150);
+            stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
+        } else {
+            noTint();
+            stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
+        }
+
         if (ragdoll && ragdoll.estado === 'SKELETON') {
             noFill();
-            if (ragdoll.skeletonType === 'fire') {
-                stroke(0, 0, 15);
-            } else {
-                stroke(0, 0, 90);
-            }
-            strokeWeight(2 / camera.zoom);
+            if (ragdoll.skeletonType === 'fire') stroke(0, 0, 15);
+            else stroke(0, 0, 90);
         } else {
-            if (body.label.includes('wheel')) fill(0, 0, 20); else fill(fillColor);
-            if (body.customProps && body.customProps.mode === 'donor') {
-                stroke(120, 100, 100); strokeWeight(3 / camera.zoom);
-            } else if (body.customProps && body.customProps.mode === 'receiver') {
-                stroke(200, 100, 100); strokeWeight(3 / camera.zoom);
-            } else {
-                stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
-            }
+             if (body.customProps && body.customProps.vida) {
+                const vidaRatio = body.customProps.vida / body.customProps.vidaMaxima;
+                fill(lerpColor(color(0, 80, 80), fillColor, vidaRatio));
+            } else if (body.label.includes('wheel')) fill(0, 0, 20); 
+            else fill(fillColor);
         }
         
-        // --- NOVO: Lógica de desenho para novos objetos ---
-        if (body.label === 'botao' && body.customProps.toggled) {
-            fill(0, 90, 100); // Muda a cor do botão quando pressionado
-        }
-         if (body.label === 'alavanca' && body.customProps.toggled) {
-            fill(0, 90, 100); // Muda a cor da alavanca quando ativada
-        }
+        if (body.label === 'botao' && body.customProps.toggled) fill(0, 90, 100);
+        if (body.label === 'alavanca' && body.customProps.toggled) fill(0, 90, 100);
 
         if (body.circleRadius) circle(0,0, body.circleRadius * 2);
         else { beginShape(); for (let vert of body.vertices) vertex(vert.x - body.position.x, vert.y - body.position.y); endShape(CLOSE); }
         
-        // --- NOVO: Lógica dos indicadores de energia e ativação ---
         if (body.label === 'propulsor' || body.label === 'pistao_base') {
             const props = body.customProps;
             const indicatorRadius = 3.5 / camera.zoom;
             let width = body.bounds.max.x - body.bounds.min.x;
             
-            // Ponto da Esquerda (Energia)
-            fill(props.isPowered ? color(120, 90, 80) : color(0, 80, 70)); // Verde ou Vermelho
+            fill(props.isPowered ? color(120, 90, 80) : color(0, 80, 70));
             noStroke();
             circle(-width/4, 0, indicatorRadius * 2);
-
-            // Ponto da Direita (Ativado)
-            fill(props.isActive ? color(120, 90, 80) : color(0, 80, 70)); // Verde ou Vermelho
+            fill(props.isActive ? color(120, 90, 80) : color(0, 80, 70));
             noStroke();
             circle(width/4, 0, indicatorRadius * 2);
         }
@@ -1751,38 +1888,39 @@ function drawBodies(bodies) {
     }
 }
 
-// Substitua a função drawConstraints inteira
 function drawConstraints() {
-    // Agora iteramos sobre o nosso array 'cordas' que contém todas as nossas juntas customizadas
-    for (let constraint of cordas) {
-        if (!constraint.bodyA || !constraint.bodyB) continue;
-        if (constraint.label === 'mouseSpring' || constraint.label === 'empalamento' || constraint.label === 'seringa_presa') continue;
+    const allConstraints = Matter.Composite.allConstraints(world);
 
-        const posA = Matter.Vector.add(constraint.bodyA.position, constraint.pointA);
-        const posB = Matter.Vector.add(constraint.bodyB.position, constraint.pointB);
+    for (let constraint of allConstraints) {
+        if (!constraint.bodyA || !constraint.bodyB || constraint.label === 'mouseSpring' || constraint.render.visible === false) continue;
+        
+        const posA = Matter.Vector.add(constraint.bodyA.position, constraint.pointA || {x:0, y:0});
+        const posB = Matter.Vector.add(constraint.bodyB.position, constraint.pointB || {x:0, y:0});
 
-        push(); // Isola os estilos de desenho
+        push();
+        
+        let style = { color: color(0, 0, 10, 0.5), weight: 2 };
 
-        // Verifica o rótulo para decidir o estilo de desenho
-        if (constraint.label === 'mola') {
-            stroke(200, 80, 90); // Azul claro para a mola
-            strokeWeight(3 / camera.zoom);
-            line(posA.x, posA.y, posB.x, posB.y);
-        } else if (constraint.label === 'prego') {
-            stroke(0, 0, 70); // Cinza para o prego
-            strokeWeight(5 / camera.zoom);
-            point(posA.x, posA.y); // Desenha um ponto de "solda"
-        } else if (constraint.parent && constraint.parent.label === 'cabo_eletrico_composite') {
-            stroke(60, 100, 100, 0.7); // Amarelo para eletricidade
-            strokeWeight(2 / camera.zoom);
-            line(posA.x, posA.y, posB.x, posB.y);
-        } else { // Cordas, tubos, etc.
-            stroke(0, 0, 10, 0.5); // Estilo padrão
-            strokeWeight(2 / camera.zoom);
-            line(posA.x, posA.y, posB.x, posB.y);
+        if (constraint.label.includes('cabo_eletrico')) style = { color: color(60, 100, 100, 0.7), weight: 2 };
+        else if (constraint.label === 'mola') style = { color: color(200, 80, 90), weight: 3 };
+        else if (constraint.label === 'prego') style = { color: color(0, 0, 70), weight: 5 };
+        else if (constraint.label.includes('hip') || constraint.label.includes('shoulder') || constraint.label === 'neck') continue;
+        
+        if (selectedObjects.constraints.includes(constraint)) {
+            stroke(60, 100, 100); // Amarelo para selecionado
+            strokeWeight(style.weight + 2 / camera.zoom);
+        } else {
+            stroke(style.color);
+            strokeWeight(style.weight / camera.zoom);
         }
 
-        pop(); // Restaura os estilos de desenho
+        if (constraint.label === 'prego') {
+            point(posA.x, posA.y);
+        } else {
+            line(posA.x, posA.y, posB.x, posB.y);
+        }
+        
+        pop(); 
     }
 }
 
@@ -1809,6 +1947,7 @@ function processExplosions() {
                 const forceMagnitude = (1 - (distance / exp.radius)) * exp.force;
                 Matter.Body.applyForce(body, body.position, Matter.Vector.mult(Matter.Vector.normalise(forceVec), forceMagnitude));
                 if(body.customProps && body.customProps.isPlayer !== undefined) aplicarDano(body, 200 / (distance * 0.1), body.position);
+                if(body.customProps && body.customProps.vida) aplicarDanoObjeto(body, 300 / (distance * 0.1));
             });
             for(let j=0; j<80; j++) particulas.push({ pos: createVector(exp.pos.x, exp.pos.y), vel: p5.Vector.random2D().mult(random(5, 18)), lifespan: 150, type: 'explosion' });
             for(let k=0; k<40; k++) particulas.push({ pos: createVector(exp.pos.x, exp.pos.y), vel: p5.Vector.random2D().mult(random(1, 6)), lifespan: 255, type: 'smoke' });
@@ -1820,7 +1959,7 @@ function processExplosions() {
 
 function updateLiquidSystem() {
     cordas.forEach(cable => {
-        if (cable.label !== 'tubo_liquido_composite') return;
+        if (!cable.label.includes('tubo_liquido')) return;
         
         const bodyA = cable.constraints[0].bodyA;
         const bodyB = cable.constraints[cable.constraints.length - 1].bodyB;
@@ -1830,7 +1969,7 @@ function updateLiquidSystem() {
         if (bodyA.customProps.mode === 'donor' && bodyB.customProps.mode === 'receiver') {
             source = bodyA; dest = bodyB;
         } else if (bodyB.customProps.mode === 'donor' && bodyA.customProps.mode === 'receiver') {
-            source = bodyB; dest = a;
+            source = bodyB; dest = bodyA;
         }
 
         if (source && dest) {
@@ -1870,6 +2009,7 @@ function transferLiquid(source, dest) {
     let amountToTransfer = Math.min(transferRate, sourceTotalVolume, spaceInDest);
 
     for (const liquidType in sourceLiquids) {
+        if (sourceLiquids[liquidType] <= 0) continue;
         const proportion = sourceLiquids[liquidType] / sourceTotalVolume;
         const liquidAmountToTransfer = amountToTransfer * proportion;
 
@@ -1885,7 +2025,7 @@ function transferLiquid(source, dest) {
         } else if (destIsSyringe) {
             dest.customProps.liquidContents[liquidType] = (dest.customProps.liquidContents[liquidType] || 0) + liquidAmountToTransfer;
         }
-        dest.customProps.liquidAmount += liquidAmountToTransfer;
+        dest.customProps.liquidAmount = (dest.customProps.liquidAmount || 0) + liquidAmountToTransfer;
     }
 }
 
@@ -1930,9 +2070,8 @@ function mobileToggleDonor() {
 }
 
 
-// =========== NOVAS FUNÇÕES DE LÓGICA E CRIAÇÃO ===========
+// --- NOVAS FUNÇÕES ---
 
-// --- NOVO: Funções para Seringas Especiais ---
 function scaleRagdoll(ragdoll, factor) {
     if (!ragdoll) return;
     ragdoll.scale = (ragdoll.scale || 1.0) * factor;
@@ -1954,14 +2093,13 @@ function petrifyRagdoll(ragdoll) {
     ragdoll.isImmortal = true; 
     
     ragdoll.composite.bodies.forEach(body => {
-        Matter.Body.setDensity(body, 0.05); // Muito pesado
+        Matter.Body.setDensity(body, 0.05);
     });
 }
 
 function shatterRagdoll(ragdoll, impactPoint) {
     if (!ragdoll || !impactPoint) return;
     
-    // Spawn de partículas de pedra
     for (let i = 0; i < 50; i++) {
         particulas.push({ 
             pos: createVector(impactPoint.x, impactPoint.y), 
@@ -1971,7 +2109,6 @@ function shatterRagdoll(ragdoll, impactPoint) {
         });
     }
 
-    // Remove o ragdoll do mundo
     Matter.World.remove(world, ragdoll.composite);
     if(ragdoll.isPlayer) {
         playerRagdoll = null;
@@ -1981,24 +2118,22 @@ function shatterRagdoll(ragdoll, impactPoint) {
 }
 
 
-// --- NOVO: Sistema de Eletricidade ---
 function updateElectricitySystem() {
     const allBodies = Matter.Composite.allBodies(world);
     allBodies.forEach(b => {
         if (b.customProps && b.customProps.isPowered !== undefined) {
-            b.customProps.isPowered = false; // Reseta a energia a cada frame
+            b.customProps.isPowered = false; 
         }
     });
 
-    const cabosEletricos = cordas.filter(c => c.label === 'cabo_eletrico_composite');
+    const cabosEletricos = allConstraints.filter(c => c.label.includes('cabo_eletrico'));
     
-    for (let i = 0; i < 5; i++) { // Itera algumas vezes para propagar a energia
+    for (let i = 0; i < 5; i++) { 
         cabosEletricos.forEach(cabo => {
             const bodyA = cabo.constraints[0].bodyA;
             const bodyB = cabo.constraints[cabo.constraints.length - 1].bodyB;
             if (!bodyA || !bodyB ) return;
 
-            // Handle cases where one body might not be an electrical component
             const propsA = bodyA.customProps || {};
             const propsB = bodyB.customProps || {};
 
@@ -2011,37 +2146,27 @@ function updateElectricitySystem() {
     }
 }
 
-// --- NOVO: Lógica de atualização dos ativadores (botões/alavancas) ---
 function updateActivators() {
     ativadores.forEach(act => {
-        if (act.customProps) act.customProps.isPowered = false; // Reset first
+        if(act.customProps) act.customProps.isPowered = false;
         
         if (act.label === 'botao') {
             const bodiesOnTop = Matter.Query.region(Matter.Composite.allBodies(world), act.bounds);
-            const isPressed = bodiesOnTop.some(b => b.id !== act.id && !b.isStatic && !b.label.includes('segmento'));
-            if(isPressed) {
-                act.customProps.isPowered = true;
-                act.customProps.toggled = true;
-            } else {
-                act.customProps.toggled = false;
-            }
+            const isPressed = bodiesOnTop.some(b => b.id !== act.id && !b.isStatic && !b.isSensor);
+            act.customProps.toggled = isPressed;
+            if(isPressed) act.customProps.isPowered = true;
         } else if (act.label === 'alavanca') {
-            if (Math.abs(act.angle) > 0.3) {
-                act.customProps.isPowered = true;
-                act.customProps.toggled = true;
-            } else {
-                 act.customProps.toggled = false;
-            }
+            const isToggled = Math.abs(act.angle) > 0.3;
+            act.customProps.toggled = isToggled;
+            if (isToggled) act.customProps.isPowered = true;
         }
     });
 }
 
-// --- NOVO: Lógica de atualização dos propulsores ---
 function updateThrusters() {
     propulsores.forEach(p => {
         if (!p.customProps) return;
         
-        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manualmente
         const shouldBeActive = p.customProps.isPowered || p.customProps.isActive;
         
         if (shouldBeActive) {
@@ -2056,30 +2181,27 @@ function updateThrusters() {
     });
 }
 
-// --- NOVO: Lógica de atualização dos pistões ---
 function updatePistons() {
     pistoes.forEach(pistonComp => {
         const base = pistonComp.bodies.find(b => b.label === 'pistao_base');
         if (!base || !base.customProps) return;
 
-        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manualmente
         const shouldBeActive = base.customProps.isPowered || base.customProps.isActive;
         const prismatic = pistonComp.constraints.find(c => c.stiffness === 0.01);
         
         if (shouldBeActive) {
-            prismatic.length = lerp(prismatic.length, 20, 0.1); // Retrai
+            prismatic.length = lerp(prismatic.length, 20, 0.1); 
         } else {
-            prismatic.length = lerp(prismatic.length, 120, 0.1); // Estende
+            prismatic.length = lerp(prismatic.length, 120, 0.1); 
         }
     });
 }
 
-// --- NOVO: Lógica para grudar C4 ---
 function handleStickyCollision(c4, otherBody, collisionPoint) {
     if (!otherBody || otherBody.isStatic || c4.customProps.isStuck) return;
 
     c4.customProps.isStuck = true;
-    c4.customProps.isSticky = false; // Gruda apenas uma vez
+    c4.customProps.isSticky = false;
 
     const weld = Matter.Constraint.create({
         bodyA: c4,
@@ -2092,7 +2214,6 @@ function handleStickyCollision(c4, otherBody, collisionPoint) {
     Matter.World.add(world, weld);
 }
 
-// --- NOVO: Lógica de atualização dos explosivos (timer da granada) ---
 function updateExplosives() {
     const allBodies = Matter.Composite.allBodies(world);
     allBodies.forEach(body => {
@@ -2106,23 +2227,21 @@ function updateExplosives() {
     });
 }
 
-// --- NOVO: Funções para criar as novas ferramentas ---
 function createWeld(body, point) {
     const weld = Matter.Constraint.create({
-        label: 'prego', // <-- Adiciona um rótulo
+        label: 'prego',
         pointA: point, 
         bodyB: body,
         pointB: Matter.Vector.sub(point, body.position),
-        stiffness: 0.7, // Um pouco de flexibilidade
+        stiffness: 0.7,
         length: 0
     });
     Matter.World.add(world, weld);
-    cordas.push(weld); // <-- Guarda a junta para ser desenhada
 }
 
 function createSpring(point1, body1, point2, body2) {
     const spring = Matter.Constraint.create({
-        label: 'mola', // <-- Adiciona um rótulo
+        label: 'mola',
         pointA: body1 ? Matter.Vector.sub(point1, body1.position) : point1,
         bodyA: body1,
         bodyB: body2,
@@ -2131,9 +2250,8 @@ function createSpring(point1, body1, point2, body2) {
         damping: 0.05
     });
     Matter.World.add(world, spring);
-    cordas.push(spring);
 }
-// --- NOVO: Sistema de Notificações ---
+
 function showNotification(message, duration = 3000) {
     const container = document.getElementById('notification-container');
     const toast = document.createElement('div');
@@ -2141,20 +2259,16 @@ function showNotification(message, duration = 3000) {
     toast.textContent = message;
     container.appendChild(toast);
 
-    // Força o navegador a aplicar a classe inicial antes de adicionar a classe 'show'
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
 
-    // Remove a notificação após a duração
     setTimeout(() => {
         toast.classList.remove('show');
-        // Remove o elemento do DOM após a animação de saída
         toast.addEventListener('transitionend', () => toast.remove());
     }, duration);
 }
 
-// Adicione esta função ao seu script.js
 function detonateAllC4s() {
     if (c4s.length === 0) {
         showNotification("Nenhuma C4 foi plantada.");
@@ -2168,4 +2282,139 @@ function detonateAllC4s() {
         }
     });
     c4s = []; 
+}
+
+function updateTeleporters() {
+    teleporters.forEach(portal => {
+        if (portal.customProps.cooldown > 0) {
+            portal.customProps.cooldown--;
+        }
+    });
+}
+
+function selectObjectsInBox() {
+    selectedObjects = { bodies: [], constraints: [] };
+    const allBodies = Matter.Composite.allBodies(world);
+    const allConstraints = Matter.Composite.allConstraints(world);
+
+    const bounds = {
+        min: { x: min(selectionBox.start.x, selectionBox.end.x), y: min(selectionBox.start.y, selectionBox.end.y) },
+        max: { x: max(selectionBox.start.x, selectionBox.end.x), y: max(selectionBox.start.y, selectionBox.end.y) }
+    };
+
+    selectedObjects.bodies = Matter.Query.region(allBodies, bounds).filter(b => !b.isStatic && !b.isSensor);
+
+    const bodyIds = selectedObjects.bodies.map(b => b.id);
+    selectedObjects.constraints = allConstraints.filter(c => {
+        if (!c.bodyA || !c.bodyB) return false;
+        const isInternal = bodyIds.includes(c.bodyA.id) && bodyIds.includes(c.bodyB.id);
+        const isFromRagdoll = c.label.match(/hip|shoulder|neck/);
+        return isInternal && !isFromRagdoll; // Seleciona apenas juntas criadas pelo jogador
+    });
+}
+
+function saveCurrentSelection() {
+    if (selectedObjects.bodies.length === 0) return;
+
+    let center = { x: 0, y: 0 };
+    selectedObjects.bodies.forEach(b => {
+        center.x += b.position.x;
+        center.y += b.position.y;
+    });
+    center.x /= selectedObjects.bodies.length;
+    center.y /= selectedObjects.bodies.length;
+
+    const bodyData = selectedObjects.bodies.map(b => ({
+        id: b.id,
+        label: b.label,
+        pos: { x: b.position.x - center.x, y: b.position.y - center.y },
+        angle: b.angle,
+        vertices: b.vertices.map(v => ({ x: v.x - b.position.x, y: v.y - b.position.y })),
+        customProps: JSON.parse(JSON.stringify({ ...b.customProps, hematomas: [], sprite: null }))
+    }));
+
+    const constraintData = selectedObjects.constraints.map(c => ({
+        label: c.label,
+        bodyA_id: c.bodyA.id,
+        bodyB_id: c.bodyB.id,
+        pointA: c.pointA,
+        pointB: c.pointB,
+        stiffness: c.stiffness,
+        damping: c.damping,
+        length: c.length
+    }));
+
+    const serializable = { bodies: bodyData, constraints: constraintData };
+
+    const savedConstructions = JSON.parse(localStorage.getItem('ragdollSandboxSaves') || '[]');
+    savedConstructions.push(serializable);
+    localStorage.setItem('ragdollSandboxSaves', JSON.stringify(savedConstructions));
+
+    showNotification("Construção salva!");
+    document.getElementById('save-selection-btn').style.display = 'none';
+    selectedObjects = { bodies: [], constraints: [] };
+    selectionBox.start = null;
+}
+
+function populateSaveModal() {
+    const grid = document.getElementById('saved-items-grid');
+    grid.innerHTML = '';
+    const savedConstructions = JSON.parse(localStorage.getItem('ragdollSandboxSaves') || '[]');
+
+    savedConstructions.forEach((con, index) => {
+        const btn = document.createElement('button');
+        btn.textContent = `Salvo ${index + 1}`;
+        btn.style.cssText = "background: #333; border: 1px solid #555; color: white; padding: 10px; cursor: pointer;";
+        btn.onclick = () => {
+            constructionToSpawn = con;
+            showNotification("Construção selecionada! Clique no mapa para posicionar.", 4000);
+            document.getElementById('save-modal').style.display = 'none';
+            gameState = modalReturnState;
+        };
+        grid.appendChild(btn);
+    });
+}
+
+function spawnConstruction(data, centerPos) {
+    const newBodyMap = new Map();
+    const group = Matter.Body.nextGroup(true);
+
+    data.bodies.forEach(bData => {
+        const newBody = Matter.Bodies.fromVertices(
+            centerPos.x + bData.pos.x,
+            centerPos.y + bData.pos.y,
+            [bData.vertices],
+            { label: bData.label, angle: bData.angle, collisionFilter: { group: group } },
+            true
+        );
+        
+        // Recriar as propriedades customizadas
+        if (bData.customProps) {
+            newBody.customProps = JSON.parse(JSON.stringify(bData.customProps));
+            if (newBody.label === 'caixa') newBody.customProps.sprite = caixaSprite;
+            else if (newBody.label === 'parede_tijolos') newBody.customProps.sprite = tijolosSprite;
+        }
+
+        Matter.World.add(world, newBody);
+        objetos.push(newBody);
+        newBodyMap.set(bData.id, newBody);
+    });
+
+    data.constraints.forEach(cData => {
+        const bodyA = newBodyMap.get(cData.bodyA_id);
+        const bodyB = newBodyMap.get(cData.bodyB_id);
+        if (bodyA && bodyB) {
+            const newConstraint = Matter.Constraint.create({
+                label: cData.label,
+                bodyA: bodyA,
+                bodyB: bodyB,
+                pointA: cData.pointA,
+                pointB: cData.pointB,
+                stiffness: cData.stiffness,
+                damping: cData.damping,
+                length: cData.length
+            });
+            Matter.World.add(world, newConstraint);
+        }
+    });
 }
