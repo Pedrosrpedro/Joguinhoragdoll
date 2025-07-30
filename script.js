@@ -479,7 +479,9 @@ function setup() {
     document.getElementById('main-menu-settings').addEventListener('click', () => { modalReturnState = 'MENU'; showModal('settings-modal'); });
     document.getElementById('main-menu-mods').addEventListener('click', () => { modalReturnState = 'MENU'; showModal('mods-modal'); });
     document.getElementById('main-menu-information').addEventListener('click', () => { modalReturnState = 'MENU'; showModal('info-modal'); });
-    document.getElementById('main-menu-quit').addEventListener('click', () => alert('Para sair, feche a aba do navegador.'));
+    document.getElementById('main-menu-quit').addEventListener('click', () => {
+    showNotification('Para sair, feche a aba do navegador.');
+});
 
     document.querySelectorAll('.close-modal-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1313,8 +1315,8 @@ function criarObjeto(tipo, x, y) {
                 c4s.push(novoObjeto);
                 break;
             case 'detonador':
-                alert("Detonador equipado! Pressione 'B' para explodir todas as C4s.");
-                return;
+    showNotification("Detonador equipado! Pressione 'B' para explodir.", 4000);
+    return;
             // --- NOVO: Máquinas e Eletrônicos ---
             case 'propulsor':
                 novoObjeto = Matter.Bodies.rectangle(x, y, 20, 50, { ...options, density: 0.008, label: 'propulsor', customProps: { ...options.customProps, cor: color(0, 0, 60), isPowered: false, isActive: false, force: 0.002 }});
