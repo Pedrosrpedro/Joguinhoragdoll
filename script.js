@@ -886,7 +886,7 @@ function handleCollisions(event) {
             if (props.isLinked && props.cooldown === 0) {
                 const targetPortal = teleporters.find(p => p.id === props.linkedTo);
                 if (targetPortal) {
-                    const vel = Matter.Body.getVelocity(otherBody);
+                    const vel = otherBody.velocity;
                     const angVel = otherBody.angularVelocity;
                     Matter.Body.setPosition(otherBody, { x: targetPortal.position.x, y: targetPortal.position.y - 30 });
                     Matter.Body.setVelocity(otherBody, vel);
@@ -2406,6 +2406,17 @@ function spawnConstruction(data, centerPos) {
         // Recriar as propriedades customizadas
         if (bData.customProps) {
             newBody.customProps = JSON.parse(JSON.stringify(bData.customProps));
+
+            // --- INÍCIO DA CORREÇÃO ---
+            // Se a propriedade de cor existir, ela é um objeto genérico. Vamos recriá-la.
+            if (newBody.customProps.cor) {
+                const loadedColorData = newBody.customProps.cor.levels; // O objeto genérico ainda tem os dados da cor
+                // Recria o objeto p5.Color a partir dos dados [h, s, b, a]
+                newBody.customProps.cor = color(loadedColorData[0], loadedColorData[1], loadedColorData[2]);
+            }
+            // --- FIM DA CORREÇÃO ---
+
+            // Atribui os sprites novamente
             if (newBody.label === 'caixa') newBody.customProps.sprite = caixaSprite;
             else if (newBody.label === 'parede_tijolos') newBody.customProps.sprite = tijolosSprite;
         }
