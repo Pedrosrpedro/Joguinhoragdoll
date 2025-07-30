@@ -290,14 +290,14 @@ canvas {
     box-shadow: none;
 }
 
-/* --- MODIFIED: Main Menu now fills its container --- */
+/* --- MODIFIED: Main Menu (SOLUÇÃO PARA O BUG DE ALINHAMENTO) --- */
 #main-menu {
     position: absolute; 
     width: 100%;
     height: 100%;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    align-items: center; /* Centraliza verticalmente */
+    justify-content: flex-start; /* Alinha os itens à esquerda para começar */
     z-index: 100;
     color: white;
     font-family: 'Roboto', sans-serif;
@@ -308,14 +308,18 @@ canvas {
         linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 40px 40px;
     overflow: hidden;
+    padding: 0 50px; /* Adiciona o espaçamento nas laterais do contêiner pai */
+    box-sizing: border-box; /* Garante que o padding não aumente o tamanho */
 }
+
 .main-menu-list {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 5px;
-    padding-left: 50px;
+    /* O padding-left foi movido para o #main-menu */
 }
+
 .main-menu-list button {
     background: none;
     border: none;
@@ -328,12 +332,16 @@ canvas {
     font-family: 'Roboto', sans-serif;
     transition: color 0.2s ease;
 }
+
 .main-menu-list button:hover {
     color: white;
 }
+
 .main-menu-title {
-    padding-right: 50px;
+    margin-left: auto; /* Mágica do Flexbox: empurra o título para a direita */
+    /* O padding-right foi movido para o #main-menu */
 }
+
 .main-menu-title h1 {
     font-family: 'Roboto', sans-serif;
     font-size: 48px;
@@ -342,7 +350,7 @@ canvas {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin: 0;
-}
+}}
 
 /* --- MODIFIED: Map Selection now fills its container --- */
 #map-selection-screen {
