@@ -2119,29 +2119,44 @@ function shatterRagdoll(ragdoll, impactPoint) {
 
 
 function updateElectricitySystem() {
+    // Primeiro, reseta a energia de todos os componentes que podem recebê-la
     const allBodies = Matter.Composite.allBodies(world);
     allBodies.forEach(b => {
         if (b.customProps && b.customProps.isPowered !== undefined) {
-            b.customProps.isPowered = false; 
+            b.customProps.isPowered = false;
         }
     });
 
-    const cabosEletricos = allConstraints.filter(c => c.label.includes('cabo_eletrico'));
-    
+    // Itera várias vezes para propagar a energia pela rede
     for (let i = 0; i < 5; i++) { 
+        // Filtra os cabos elétricos do array principal 'cordas'
+        const cabosEletricos = cordas.filter(c => c.label === 'cabo_eletrico_composite');
+
         cabosEletricos.forEach(cabo => {
+            // 'cabo' é um Composite, então pegamos as pontas pelas juntas
             const bodyA = cabo.constraints[0].bodyA;
             const bodyB = cabo.constraints[cabo.constraints.length - 1].bodyB;
-            if (!bodyA || !bodyB ) return;
+            if (!bodyA || !bodyB) return;
 
             const propsA = bodyA.customProps || {};
             const propsB = bodyB.customProps || {};
 
-            const aIsPowered = bodyA.label === 'gerador' || propsA.isPowered;
-            const bIsPowered = bodyB.label === 'gerador' || propsB.isPowered;
+            // Uma fonte de energia é um gerador ou um ativador que está ligado
+            const aIsSource = bodyA.label === 'gerador' || (propsA.isActivator && propsA.toggled);
+            const bIsSource = bodyB.label === 'gerador' || (propsB.isActivator && propsB.toggled);
+            
+            // Um corpo está energizado se for uma fonte ou se já recebeu energia neste loop
+            const aIsPowered = aIsSource || propsA.isPowered;
+            const bIsPowered = bIsSource || propsB.isPowered;
 
-            if (aIsPowered && propsB.isPowered !== undefined && !bodyB.isStatic) propsB.isPowered = true;
-            if (bIsPowered && propsA.isPowered !== undefined && !bodyA.isStatic) propsA.isPowered = true;
+            // Propaga a energia: se A está ligado, B recebe energia (se for um componente elétrico)
+            if (aIsPowered && propsB.isPowered !== undefined) {
+                propsB.isPowered = true;
+            }
+            // E vice-versa
+            if (bIsPowered && propsA.isPowered !== undefined) {
+                propsA.isPowered = true;
+            }
         });
     }
 }
