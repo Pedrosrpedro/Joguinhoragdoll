@@ -632,10 +632,9 @@ function toggleFreeze() {
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        // Guarda o estado atual para poder retornar a ele
         modalReturnState = gameState; 
         modal.style.display = 'flex';
-        gameState = 'MODAL'; // Pausa o jogo
+        gameState = 'MODAL';
     }
 }
 
