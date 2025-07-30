@@ -1042,3 +1042,40 @@ function mobileFreeze() {
 function mobileToggleDonor() {
     // Lógica para controles mobile...
 }
+
+// ==================================================================
+// COLE ESTE BLOCO PARA CORRIGIR O ERRO DO MENU
+// ==================================================================
+
+// --- Funções de Navegação de UI (Menu -> Jogo) ---
+
+function showMapSelection() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('map-selection-screen').style.display = 'flex';
+}
+
+function iniciarJogoComMapa(mapType) {
+    currentMapType = mapType;
+    resetarMundo(); 
+    startGame();
+}
+
+function startGame() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('map-selection-screen').style.display = 'none';
+    document.getElementById('game-container').style.display = 'block';
+    
+    gameState = 'GAME';
+    modalReturnState = 'GAME'; 
+
+    windowResized(); // Garante que o canvas tenha o tamanho certo
+    
+    // Centraliza a câmera no ponto inicial do jogador
+    camera.x = width / 2 - PLAYER_SPAWN_X * camera.zoom;
+    camera.y = height / 2 - PLAYER_SPAWN_Y * camera.zoom;
+    
+    // Esconde a sidebar no início do jogo
+    document.getElementById('left-sidebar').classList.add('hidden');
+    // Define a categoria inicial de itens
+    switchCategory('category-items-basic', 'icon-items-basic');
+}
