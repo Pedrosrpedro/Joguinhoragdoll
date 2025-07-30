@@ -626,11 +626,14 @@ function toggleFreeze() {
     }
 }
 
+// --- MODIFICADO: Função de mostrar modal aprimorada ---
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
+        // Guarda o estado atual para poder retornar a ele
+        modalReturnState = gameState; 
         modal.style.display = 'flex';
-        gameState = 'MODAL';
+        gameState = 'MODAL'; // Pausa o jogo
     }
 }
 
@@ -1963,4 +1966,24 @@ function createSpring(point1, body1, point2, body2) {
     });
     Matter.World.add(world, spring);
     cordas.push(spring);
+}
+// --- NOVO: Sistema de Notificações ---
+function showNotification(message, duration = 3000) {
+    const container = document.getElementById('notification-container');
+    const toast = document.createElement('div');
+    toast.className = 'notification-toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    // Força o navegador a aplicar a classe inicial antes de adicionar a classe 'show'
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+
+    // Remove a notificação após a duração
+    setTimeout(() => {
+        toast.classList.remove('show');
+        // Remove o elemento do DOM após a animação de saída
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, duration);
 }
