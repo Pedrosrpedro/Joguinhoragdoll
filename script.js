@@ -1103,10 +1103,16 @@ function emptySyringe(seringa) {
 function injectSyringe(ragdoll, seringa) {
     if (!ragdoll || seringa.label === 'seringa_vazia' || ragdoll.isPermanentlyDead) return;
     
+    // <<< MUDANÇAS AQUI DENTRO DO LOOP
     for (const liquidType in seringa.customProps.liquidContents) {
         const amount = seringa.customProps.liquidContents[liquidType];
-        ragdoll.internalLiquids[liquidType] = (ragdoll.internalLiquids[liquidType] || 0) + amount;
         
+        // Apenas adiciona ao sistema interno se NÃO for fogo
+        if (liquidType !== 'fogo') {
+            ragdoll.internalLiquids[liquidType] = (ragdoll.internalLiquids[liquidType] || 0) + amount;
+        }
+        
+        // Aplica os efeitos
         switch(liquidType) {
             case 'acido': ragdoll.isCorroding = true; break;
             case 'adrenalina': ragdoll.adrenalineTimer = 10000; break;
@@ -1118,12 +1124,15 @@ function injectSyringe(ragdoll, seringa) {
                  break;
             case 'zumbi': mudarEstado(ragdoll, 'ZUMBI'); break;
             case 'imortalidade': ragdoll.isImmortal = true; break;
-            case 'fogo': if (ragdoll.estado !== 'CARBONIZED') ragdoll.isOnFire = true; break;
+            // A lógica do fogo em si já estava certa, o problema era fora daqui
+            case 'fogo': if (ragdoll.estado !== 'SKELETON') ragdoll.isOnFire = true; break;
             case 'nitro': ragdoll.isVolatile = true; break;
         }
     }
+
     seringa.customProps.uses--;
     if (seringa.customProps.uses <= 0) setTimeout(() => emptySyringe(seringa), 100);
+}
 }
 
 // --- Rope & Cable Creation ---
