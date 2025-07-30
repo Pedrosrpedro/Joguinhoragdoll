@@ -3,6 +3,9 @@
 
 let engine, world, runner, playerRagdoll, mouseSpring = null;
 let objetos = [], particulas = [], outrosRagdolls = [], manchas = [], cordas = [], explosions = [];
+// --- NOVO: Variáveis para novos sistemas ---
+let propulsores = [], pistoes = [], ativadores = [], c4s = [];
+
 let objetoParaCriar = 'mao';
 let activePistol = null; 
 let activeVehicle = null;
@@ -41,6 +44,8 @@ let PLAYER_SPAWN_Y = GROUND_Y - 150;
 const VEHICLE_TORQUE = 0.01; 
 const VEHICLE_MAX_SPEED = 0.6;
 const VEHICLE_BRAKE_DAMPING = 0.9;
+// --- NOVO: Constante de força para a marreta ---
+const FORCA_MARRETA = 0.5;
 
 const LIMIAR_DE_DANO_VELOCIDADE = 5.0, LIMIAR_EMPALAMENTO = 15.0;
 const LIMIAR_INJECAO_SERINGA = 7.0;
@@ -231,6 +236,9 @@ function resetarMundo() {
     gerarMapa(currentMapType);
     
     objetos = []; particulas = []; outrosRagdolls = []; manchas = []; cordas = []; explosions = [];
+    // --- NOVO ---
+    propulsores = []; pistoes = []; ativadores = []; c4s = [];
+
     activePistol = null; activeVehicle = null; playerRagdoll = null; 
 
     playerRagdoll = createRagdoll(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, true);
@@ -257,6 +265,8 @@ function clearAllBodies() {
         playerRagdoll = null;
     }
     activePistol = null; manchas = []; particulas = []; explosions = [];
+    // --- NOVO ---
+    propulsores = []; pistoes = []; ativadores = []; c4s = [];
 }
 
 function clearDebris() {
@@ -265,6 +275,8 @@ function clearDebris() {
         if (body.isStatic || (body.customProps && body.customProps.isPlayer !== undefined) ) continue;
         if ( (body.parent.label && (body.parent.label.includes('carro') || body.parent.label.includes('onibus'))) || (body.label && (body.label.includes('car') || body.label.includes('bus'))) ) continue;
         if (body.label.includes('liquid_container') || body.label.includes('gerador') ) continue;
+        // --- NOVO: Não limpar as novas máquinas ---
+        if (['propulsor', 'pistao_base', 'pistao_braco', 'botao', 'alavanca', 'c4', 'granada'].includes(body.label)) continue;
         objectsToRemove.push(body);
     }
     objectsToRemove.forEach(body => Matter.World.remove(world, body));
@@ -291,6 +303,8 @@ function setupControles() {
     document.getElementById('icon-favorites').addEventListener('click', () => switchCategoryAndToggleSidebar('category-favorites-content', 'icon-favorites')); 
     document.getElementById('icon-items-basic').addEventListener('click', () => switchCategoryAndToggleSidebar('category-items-basic', 'icon-items-basic'));
     document.getElementById('icon-firearms').addEventListener('click', () => switchCategoryAndToggleSidebar('category-firearms-content', 'icon-firearms'));
+    // --- NOVO: Botão da categoria de explosivos ---
+    document.getElementById('icon-explosives').addEventListener('click', () => switchCategoryAndToggleSidebar('category-explosives-content', 'icon-explosives'));
     document.getElementById('icon-people').addEventListener('click', () => switchCategoryAndToggleSidebar('category-people-content', 'icon-people'));
     document.getElementById('icon-vehicles').addEventListener('click', () => switchCategoryAndToggleSidebar('category-vehicles-content', 'icon-vehicles')); 
     document.getElementById('icon-syringes').addEventListener('click', () => switchCategoryAndToggleSidebar('category-syringes-content', 'icon-syringes'));
@@ -366,7 +380,7 @@ function switchCategoryAndToggleSidebar(contentCategoryId, topBarIconId) {
         leftSidebar.classList.remove('hidden'); 
         switchCategory(contentCategoryId);
     }
-    const isTool = objetoParaCriar === 'corda' || objetoParaCriar === 'cabo_eletrico' || objetoParaCriar === 'tubo_liquido';
+    const isTool = ['corda', 'cabo_eletrico', 'tubo_liquido', 'mola', 'prego'].includes(objetoParaCriar);
     if (!isTool) {
          document.getElementById('floating-tool-panel').style.display = 'none';
     }
@@ -379,6 +393,8 @@ function switchCategory(contentCategoryId) {
     let topBarIconElement = null;
     if (contentCategoryId === 'category-items-basic') topBarIconElement = document.getElementById('icon-items-basic');
     else if (contentCategoryId === 'category-firearms-content') topBarIconElement = document.getElementById('icon-firearms');
+    // --- NOVO: Caso para explosivos ---
+    else if (contentCategoryId === 'category-explosives-content') topBarIconElement = document.getElementById('icon-explosives');
     else if (contentCategoryId === 'category-people-content') topBarIconElement = document.getElementById('icon-people');
     else if (contentCategoryId === 'category-vehicles-content') topBarIconElement = document.getElementById('icon-vehicles'); 
     else if (contentCategoryId === 'category-syringes-content') topBarIconElement = document.getElementById('icon-syringes');
@@ -418,10 +434,10 @@ function selectCreationType(type) {
             if (newActiveToolBtn) {
                  newActiveToolBtn.classList.add('ativo'); 
                  objetoParaCriar = type;
-                 if (type === 'corda' || type === 'cabo_eletrico' || type === 'tubo_liquido') {
+                 if (['corda', 'cabo_eletrico', 'tubo_liquido', 'mola', 'prego'].includes(type)) {
                      document.getElementById('floating-tool-panel').style.display = 'block';
-                     let toolName = type.replace('_', ' de ').replace('cabo', 'Cabo').replace('tubo', 'Tubo');
-                     document.getElementById('floating-tool-panel').textContent = `Clique para iniciar o ${toolName}`;
+                     let toolName = type.replace('_', ' de ').replace('cabo', 'Cabo').replace('tubo', 'Tubo').replace('mola', 'Mola').replace('prego', 'Prego');
+                     document.getElementById('floating-tool-panel').textContent = `Clique para usar ${toolName}`;
                  }
             } else {
                 objetoParaCriar = null;
@@ -438,22 +454,14 @@ function setup() {
 
     const gameContainer = document.getElementById('game-container');
     const canvas = createCanvas(1, 1);
-    canvas.parent('game-container'); // O canvas é adicionado aqui
-    colorMode(HSB, 360, 100, 100);
-
-    // --- NOVA SOLUÇÃO PARA O BUG DA UI ---
-    // Reposiciona os elementos da UI para garantir que fiquem "em cima" do canvas
+    canvas.parent('game-container');
     const uiElements = [
-        document.getElementById('top-bar'),
-        document.getElementById('left-sidebar'),
-        document.getElementById('bottom-bar'),
-        document.getElementById('mobile-controls'),
-        document.getElementById('floating-tool-panel')
+        document.getElementById('top-bar'), document.getElementById('left-sidebar'), document.getElementById('bottom-bar'),
+        document.getElementById('mobile-controls'), document.getElementById('floating-tool-panel')
     ];
-    uiElements.forEach(el => {
-        if (el) gameContainer.appendChild(el);
-    });
-    // --- FIM DA SOLUÇÃO ---
+    uiElements.forEach(el => { if (el) gameContainer.appendChild(el); });
+
+    colorMode(HSB, 360, 100, 100);
     
     engine = Matter.Engine.create(); 
     world = engine.world;
@@ -462,7 +470,6 @@ function setup() {
     Matter.Runner.run(runner, engine);
     Matter.Events.on(engine, 'collisionStart', handleCollisions);
 
-    // O resto da sua função setup continua aqui, sem alterações...
     document.getElementById('main-menu-play').addEventListener('click', showMapSelection);
     document.querySelectorAll('.map-preview-btn').forEach(btn => {
         btn.addEventListener('click', () => iniciarJogoComMapa(btn.dataset.map));
@@ -556,6 +563,16 @@ function keyPressed() {
     } else if (key === 'o' || key === 'O') {
         if (cameraFollowTarget) cameraFollowTarget = null;
         else if (mouseSpring && mouseSpring.bodyA) cameraFollowTarget = mouseSpring.bodyA;
+    } 
+    // --- NOVO: Tecla 'B' para detonar C4 ---
+    else if (key === 'b' || key === 'B') {
+        c4s.forEach(c4 => {
+            if (Matter.Composite.get(world, c4.id, 'body')) { 
+                createExplosion(c4.position, 180, 0.6);
+                Matter.World.remove(world, c4);
+            }
+        });
+        c4s = []; 
     }
 }
 
@@ -704,6 +721,13 @@ function draw() {
         }
     }
     
+    // --- NOVO: Atualiza todos os novos sistemas a cada frame ---
+    updateElectricitySystem();
+    updateThrusters();
+    updatePistons();
+    updateExplosives();
+    updateActivators();
+
     push();
     translate(camera.x, camera.y);
     scale(camera.zoom);
@@ -795,6 +819,29 @@ function handleCollisions(event) {
         const eSeringaB = pair.bodyB.label && pair.bodyB.label.startsWith('seringa_');
         const eBulletA = pair.bodyA.label === 'bullet';
         const eBulletB = pair.bodyB.label === 'bullet';
+
+        // --- NOVO: Variáveis para novos objetos ---
+        const eC4A = pair.bodyA.label === 'c4';
+        const eC4B = pair.bodyB.label === 'c4';
+        const eGranadaA = pair.bodyA.label === 'granada';
+        const eGranadaB = pair.bodyB.label === 'granada';
+        const eMarretaA = pair.bodyA.label === 'marreta';
+        const eMarretaB = pair.bodyB.label === 'marreta';
+
+        // --- NOVO: Lógica de colisão para C4 e Granada ---
+        if(eC4A && pair.bodyA.customProps.isSticky) handleStickyCollision(pair.bodyA, pair.bodyB, pair.collision.supports[0]);
+        if(eC4B && pair.bodyB.customProps.isSticky) handleStickyCollision(pair.bodyB, pair.bodyA, pair.collision.supports[0]);
+        
+        if (eGranadaA && velRelativa > 10) pair.bodyA.customProps.timer = 1; // Explode com impacto forte
+        if (eGranadaB && velRelativa > 10) pair.bodyB.customProps.timer = 1;
+
+        // --- NOVO: Lógica para a marreta ---
+        if ((eMarretaA && eOrganicoB) || (eMarretaB && eOrganicoA)) {
+            const marreta = eMarretaA ? pair.bodyA : pair.bodyB;
+            const target = eMarretaA ? pair.bodyB : pair.bodyA;
+            const forceDirection = Matter.Vector.sub(target.position, marreta.position);
+            Matter.Body.applyForce(target, target.position, Matter.Vector.mult(Matter.Vector.normalise(forceDirection), FORCA_MARRETA));
+        }
 
         const ragdollA = eOrganicoA ? encontrarRagdollPorCorpo(pair.bodyA) : null;
         const ragdollB = eOrganicoB ? encontrarRagdollPorCorpo(pair.bodyB) : null;
@@ -994,9 +1041,9 @@ function mousePressed() {
     const worldMouse = screenToWorld(mouseX, mouseY);
     const allBodies = Matter.Composite.allBodies(world);
     const bodiesUnderMouse = Matter.Query.point(allBodies, worldMouse);
+    const clickedBody = bodiesUnderMouse.find(b => !b.isStatic);
 
     if (objetoParaCriar === 'mao') { 
-        const clickedBody = bodiesUnderMouse.find(b => !b.isStatic);
         if (clickedBody) {
             mouseSpring = Matter.Constraint.create({bodyA:clickedBody, pointB: worldMouse, stiffness:0.1, damping:0.1, label: 'mouseSpring'}); 
             Matter.World.add(world, mouseSpring); 
@@ -1005,14 +1052,25 @@ function mousePressed() {
             panStart = { x: mouseX, y: mouseY };
             cameraFollowTarget = null;
         }
-    } else if (objetoParaCriar === 'corda' || objetoParaCriar === 'cabo_eletrico' || objetoParaCriar === 'tubo_liquido') { 
+    } 
+    // --- MODIFICADO: Adiciona novas ferramentas à lógica de conexão ---
+    else if (['corda', 'cabo_eletrico', 'tubo_liquido', 'mola', 'prego'].includes(objetoParaCriar)) { 
+        if (objetoParaCriar === 'prego') {
+             if (clickedBody) createWeld(clickedBody, worldMouse);
+             return;
+        }
+        
         if (ropeStartPoint === null) { 
             ropeStartPoint = worldMouse;
-            ropeStartBody = bodiesUnderMouse.find(b => !b.isStatic) || null;
+            ropeStartBody = clickedBody || null;
         } else { 
             const ropeEndPoint = worldMouse;
-            const ropeEndBody = bodiesUnderMouse.find(b => !b.isStatic) || null;
-            createCable(ropeStartPoint, ropeStartBody, ropeEndPoint, ropeEndBody, objetoParaCriar);
+            const ropeEndBody = clickedBody || null;
+            if (objetoParaCriar === 'mola') {
+                createSpring(ropeStartPoint, ropeStartBody, ropeEndPoint, ropeEndBody);
+            } else {
+                createCable(ropeStartPoint, ropeStartBody, ropeEndPoint, ropeEndBody, objetoParaCriar);
+            }
             ropeStartPoint = null; ropeStartBody = null;
             document.getElementById('floating-tool-panel').style.display = 'none';
         }
@@ -1048,7 +1106,6 @@ function mouseReleased() {
 }
 
 // --- Syringe and Liquid Functions ---
-// <<< MUDANÇA: Ajustada a rigidez da junta da seringa
 function stickSyringe(seringa, corpoAlvo, ponto) {
     const ragdoll = encontrarRagdollPorCorpo(corpoAlvo);
     if (!ragdoll || seringa.customProps.isStuck) return;
@@ -1112,7 +1169,6 @@ function emptySyringe(seringa) {
     seringa.customProps.liquidAmount = 0;
 }
 
-// <<< MUDANÇA: Corrigida a lógica da seringa de fogo
 function injectSyringe(ragdoll, seringa) {
     if (!ragdoll || seringa.label === 'seringa_vazia' || ragdoll.isPermanentlyDead) return;
     
@@ -1212,6 +1268,7 @@ function getSyringeColor(type) {
     }
 }
 
+// --- MODIFICADO: Lógica de criação de objetos ---
 function criarObjeto(tipo, x, y) { 
     let novoObjeto; 
     let options = {restitution:0.5, friction:0.5, customProps: {cor: color(random(360), 60, 90), isFrozen: false, isStuck: false, mode: 'receiver'}}; 
@@ -1239,6 +1296,45 @@ function criarObjeto(tipo, x, y) {
                 novoObjeto = Matter.Bodies.fromVertices(x, y, [Matter.Vertices.fromPath('0 10 80 10 80 0 100 0 100 20 80 20 80 30 60 30 60 20 0 20')], { ...options, density: 0.005, label: 'pistola', customProps: { ...options.customProps, cor: color(0, 0, 30) } });
                 activePistol = novoObjeto; 
                 break;
+            // --- NOVO: Armas corpo a corpo ---
+            case 'marreta':
+                novoObjeto = Matter.Bodies.rectangle(x, y, 100, 30, { ...options, density: 0.05, label: 'marreta', customProps: { ...options.customProps, cor: color(0, 0, 50) }});
+                break;
+            // --- NOVO: Explosivos ---
+            case 'granada':
+                novoObjeto = Matter.Bodies.circle(x, y, 15, { ...options, density: 0.01, label: 'granada', customProps: { ...options.customProps, cor: color(120, 60, 40), timer: 200, primed: true }});
+                break;
+            case 'c4':
+                novoObjeto = Matter.Bodies.rectangle(x, y, 30, 20, { ...options, density: 0.02, label: 'c4', customProps: { ...options.customProps, cor: color(30, 70, 60), isSticky: true }});
+                c4s.push(novoObjeto);
+                break;
+            case 'detonador':
+                alert("Detonador equipado! Pressione 'B' para explodir todas as C4s.");
+                return;
+            // --- NOVO: Máquinas e Eletrônicos ---
+            case 'propulsor':
+                novoObjeto = Matter.Bodies.rectangle(x, y, 20, 50, { ...options, density: 0.008, label: 'propulsor', customProps: { ...options.customProps, cor: color(0, 0, 60), isPowered: false, isActive: false, force: 0.002 }});
+                propulsores.push(novoObjeto);
+                break;
+            case 'pistao':
+                const pistaoBase = Matter.Bodies.rectangle(x, y, 30, 60, { ...options, density: 0.01, label: 'pistao_base', customProps: { ...options.customProps, cor: color(0,0,50), isPowered: false, isActive: false }});
+                const pistaoBraco = Matter.Bodies.rectangle(x, y-50, 20, 40, { ...options, density: 0.005, label: 'pistao_braco' });
+                const pistaoJunta = Matter.Constraint.create({ bodyA: pistaoBase, bodyB: pistaoBraco, pointA: {x:0, y: -30}, pointB: {x:0, y:20}, stiffness: 1, length: 0 });
+                const pistaoPrismatico = Matter.Constraint.create({ bodyA: pistaoBase, bodyB: pistaoBraco, pointA: {x:0, y: -100}, pointB: {x:0, y:0}, stiffness: 0.01, length: 70, render: { type: 'line', visible: false } });
+                novoObjeto = Matter.Composite.create({ label: 'pistao_composite', bodies: [pistaoBase, pistaoBraco], constraints: [pistaoJunta, pistaoPrismatico]});
+                pistoes.push(novoObjeto);
+                break;
+            case 'botao':
+                novoObjeto = Matter.Bodies.rectangle(x,y, 40, 20, { isStatic: true, label: 'botao', customProps: { ...options.customProps, cor: color(0,80,90), isActivator: true, toggled: false }});
+                ativadores.push(novoObjeto);
+                break;
+            case 'alavanca':
+                 const alavancaBase = Matter.Bodies.rectangle(x, y, 20, 20, { isStatic: true });
+                 novoObjeto = Matter.Bodies.rectangle(x, y - 25, 10, 50, { ...options, density: 0.001, label: 'alavanca', customProps: { ...options.customProps, cor: color(0,0,70), isActivator: true, toggled: false } });
+                 const alavancaJunta = Matter.Constraint.create({ bodyA: alavancaBase, bodyB: novoObjeto, pointA: {x:0, y:0}, pointB: {x:0, y:25}, stiffness: 0.8, length: 0 });
+                 Matter.World.add(world, [alavancaBase, alavancaJunta]);
+                 ativadores.push(novoObjeto);
+                 break;
             case 'boneco': 
                 const novoRagdoll=createRagdoll(x,y,false); 
                 outrosRagdolls.push(novoRagdoll); 
@@ -1260,14 +1356,13 @@ function criarObjeto(tipo, x, y) {
             case 'gerador':
                 novoObjeto = Matter.Bodies.rectangle(x, y, 80, 80, {density: 0.015, label: 'gerador', customProps: {cor: color(30, 80, 50), isFrozen: false, mode: 'normal'}});
                 break;
-            case 'corda': case 'cabo_eletrico': case 'tubo_liquido': return;
+            case 'corda': case 'cabo_eletrico': case 'tubo_liquido': case 'mola': case 'prego': return;
             default: return;
         } 
     }
      if (novoObjeto) { 
         if (novoObjeto.type === 'composite') { 
             Matter.World.add(world, novoObjeto);
-            novoObjeto.bodies.forEach(body => objetos.push(body));
         } else { 
             objetos.push(novoObjeto); 
             Matter.World.add(world, novoObjeto); 
@@ -1513,6 +1608,14 @@ function drawBodies(bodies) {
                 stroke(0, 0, 10); strokeWeight(1.5 / camera.zoom);
             }
         }
+        
+        // --- NOVO: Lógica de desenho para novos objetos ---
+        if (body.label === 'botao' && body.customProps.toggled) {
+            fill(0, 90, 100); // Muda a cor do botão quando pressionado
+        }
+         if (body.label === 'alavanca' && body.customProps.toggled) {
+            fill(0, 90, 100); // Muda a cor da alavanca quando ativada
+        }
 
         if (body.circleRadius) circle(0,0, body.circleRadius * 2);
         else { beginShape(); for (let vert of body.vertices) vertex(vert.x - body.position.x, vert.y - body.position.y); endShape(CLOSE); }
@@ -1550,9 +1653,17 @@ function drawConstraints(constraints) {
         if (!constraint.bodyA || !constraint.bodyB || constraint.label === 'mouseSpring' || constraint.label === 'empalamento' || constraint.label === 'seringa_presa') continue;
         if (constraint.parent && constraint.parent.label && (constraint.parent.label.startsWith('carro') || constraint.parent.label.startsWith('onibus'))) continue;
         
+        // --- NOVO: Desenho para a Mola (Spring) ---
+        if (constraint.stiffness === 0.01 && constraint.label !== 'prismatic') {
+             stroke(0, 0, 100);
+             strokeWeight(4 / camera.zoom);
+        } else {
+            stroke(0, 0, 100, 0.2);
+            strokeWeight(1 / camera.zoom);
+        }
+        
         const posA = Matter.Vector.add(constraint.bodyA.position, constraint.pointA);
         const posB = Matter.Vector.add(constraint.bodyB.position, constraint.pointB);
-        stroke(0, 0, 100, 0.2); strokeWeight(1 / camera.zoom);
         line(posA.x, posA.y, posB.x, posB.y);
     }
 }
@@ -1601,7 +1712,7 @@ function updateLiquidSystem() {
         if (bodyA.customProps.mode === 'donor' && bodyB.customProps.mode === 'receiver') {
             source = bodyA; dest = bodyB;
         } else if (bodyB.customProps.mode === 'donor' && bodyA.customProps.mode === 'receiver') {
-            source = bodyB; dest = bodyA;
+            source = bodyB; dest = a;
         }
 
         if (source && dest) {
@@ -1698,4 +1809,139 @@ function mobileToggleDonor() {
         if (encontrarRagdollPorCorpo(targetBody)) props.mode = (props.mode === 'donor' ? 'normal' : 'donor');
         else if (props.hasOwnProperty('mode')) props.mode = (props.mode === 'donor' ? 'receiver' : 'donor');
     }
+}
+
+
+// =========== NOVAS FUNÇÕES DE LÓGICA E CRIAÇÃO ===========
+
+// --- NOVO: Sistema de Eletricidade ---
+function updateElectricitySystem() {
+    const allBodies = Matter.Composite.allBodies(world);
+    allBodies.forEach(b => {
+        if (b.customProps && b.customProps.isPowered !== undefined) {
+            b.customProps.isPowered = false; // Reseta a energia a cada frame
+        }
+    });
+
+    const cabosEletricos = cordas.filter(c => c.label === 'cabo_eletrico_composite');
+    
+    for (let i = 0; i < 5; i++) { // Itera algumas vezes para propagar a energia
+        cabosEletricos.forEach(cabo => {
+            const bodyA = cabo.constraints[0].bodyA;
+            const bodyB = cabo.constraints[cabo.constraints.length - 1].bodyB;
+            if (!bodyA || !bodyB || !bodyA.customProps || !bodyB.customProps) return;
+
+            const aIsPowered = bodyA.label === 'gerador' || (bodyA.customProps && bodyA.customProps.isPowered);
+            const bIsPowered = bodyB.label === 'gerador' || (bodyB.customProps && bodyB.customProps.isPowered);
+
+            if (aIsPowered && !bodyB.isStatic) bodyB.customProps.isPowered = true;
+            if (bIsPowered && !bodyA.isStatic) bodyA.customProps.isPowered = true;
+        });
+    }
+}
+
+// --- NOVO: Lógica de atualização dos ativadores (botões/alavancas) ---
+function updateActivators() {
+    ativadores.forEach(act => {
+        if (act.label === 'botao') {
+            const bodiesOnTop = Matter.Query.region(Matter.Composite.allBodies(world), act.bounds);
+            const isPressed = bodiesOnTop.some(b => b.id !== act.id && !b.isStatic && !b.label.includes('segmento'));
+            if(isPressed) act.customProps.isPowered = true;
+        } else if (act.label === 'alavanca') {
+            if (Math.abs(act.angle) > 0.3) act.customProps.isPowered = true;
+        }
+    });
+}
+
+// --- NOVO: Lógica de atualização dos propulsores ---
+function updateThrusters() {
+    propulsores.forEach(p => {
+        if (!p.customProps) return;
+        // O propulsor ativa se estiver recebendo energia de um cabo ou ativador
+        p.customProps.isActive = p.customProps.isPowered;
+        
+        if (p.customProps.isActive) {
+            const forceVector = { x: 0, y: -p.customProps.force };
+            const rotatedForce = Matter.Vector.rotate(forceVector, p.angle);
+            Matter.Body.applyForce(p, p.position, rotatedForce);
+            if (Math.random() < 0.8) {
+                const particlePos = Matter.Vector.add(p.position, Matter.Vector.rotate({x:0, y:25}, p.angle));
+                particulas.push({ pos: createVector(particlePos.x, particlePos.y), vel: p5.Vector.random2D().mult(random(1, 2)), lifespan: 60, type: 'fire'});
+            }
+        }
+    });
+}
+
+// --- NOVO: Lógica de atualização dos pistões ---
+function updatePistons() {
+    pistoes.forEach(pistonComp => {
+        const base = pistonComp.bodies.find(b => b.label === 'pistao_base');
+        if (!base || !base.customProps) return;
+
+        base.customProps.isActive = base.customProps.isPowered;
+        const prismatic = pistonComp.constraints.find(c => c.stiffness === 0.01);
+        
+        if (base.customProps.isActive) {
+            prismatic.length = lerp(prismatic.length, 20, 0.1); // Retrai
+        } else {
+            prismatic.length = lerp(prismatic.length, 120, 0.1); // Estende
+        }
+    });
+}
+
+// --- NOVO: Lógica para grudar C4 ---
+function handleStickyCollision(c4, otherBody, collisionPoint) {
+    if (!otherBody || otherBody.isStatic || c4.customProps.isStuck) return;
+
+    c4.customProps.isStuck = true;
+    c4.customProps.isSticky = false; // Gruda apenas uma vez
+
+    const weld = Matter.Constraint.create({
+        bodyA: c4,
+        bodyB: otherBody,
+        pointA: Matter.Vector.sub(collisionPoint, c4.position),
+        pointB: Matter.Vector.sub(collisionPoint, otherBody.position),
+        stiffness: 1,
+        length: 0
+    });
+    Matter.World.add(world, weld);
+}
+
+// --- NOVO: Lógica de atualização dos explosivos (timer da granada) ---
+function updateExplosives() {
+    const allBodies = Matter.Composite.allBodies(world);
+    allBodies.forEach(body => {
+        if(body.label === 'granada' && body.customProps.primed) {
+            body.customProps.timer--;
+            if (body.customProps.timer <= 0) {
+                createExplosion(body.position, 200, 0.7);
+                Matter.World.remove(world, body);
+            }
+        }
+    });
+}
+
+// --- NOVO: Funções para criar as novas ferramentas ---
+function createWeld(body, point) {
+    const weld = Matter.Constraint.create({
+        pointA: point, // Ponto no mundo
+        bodyB: body,
+        pointB: Matter.Vector.sub(point, body.position), // Ponto local no corpo
+        stiffness: 1,
+        length: 0
+    });
+    Matter.World.add(world, weld);
+}
+
+function createSpring(point1, body1, point2, body2) {
+    const spring = Matter.Constraint.create({
+        pointA: body1 ? Matter.Vector.sub(point1, body1.position) : point1,
+        bodyA: body1,
+        bodyB: body2,
+        pointB: body2 ? Matter.Vector.sub(point2, body2.position) : point2,
+        stiffness: 0.01,
+        damping: 0.05
+    });
+    Matter.World.add(world, spring);
+    cordas.push(spring);
 }
