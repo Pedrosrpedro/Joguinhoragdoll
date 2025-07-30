@@ -792,7 +792,7 @@ function draw() {
     const todasAsJuntas = Matter.Composite.allConstraints(world);
 
     drawBodies(allBodies);
-    drawConstraints(todasAsJuntas);
+    drawConstraints(); // <-- Mude aqui!
     desenharUI();
 
     pop(); // End world camera view
@@ -1649,23 +1649,38 @@ function drawBodies(bodies) {
     }
 }
 
-function drawConstraints(constraints) {
-    for (let constraint of constraints) {
-        if (!constraint.bodyA || !constraint.bodyB || constraint.label === 'mouseSpring' || constraint.label === 'empalamento' || constraint.label === 'seringa_presa') continue;
-        if (constraint.parent && constraint.parent.label && (constraint.parent.label.startsWith('carro') || constraint.parent.label.startsWith('onibus'))) continue;
-        
-        // --- NOVO: Desenho para a Mola (Spring) ---
-        if (constraint.stiffness === 0.01 && constraint.label !== 'prismatic') {
-             stroke(0, 0, 100);
-             strokeWeight(4 / camera.zoom);
-        } else {
-            stroke(0, 0, 100, 0.2);
-            strokeWeight(1 / camera.zoom);
-        }
-        
+// Substitua a função drawConstraints inteira
+function drawConstraints() {
+    // Agora iteramos sobre o nosso array 'cordas' que contém todas as nossas juntas customizadas
+    for (let constraint of cordas) {
+        if (!constraint.bodyA || !constraint.bodyB) continue;
+        if (constraint.label === 'mouseSpring' || constraint.label === 'empalamento' || constraint.label === 'seringa_presa') continue;
+
         const posA = Matter.Vector.add(constraint.bodyA.position, constraint.pointA);
         const posB = Matter.Vector.add(constraint.bodyB.position, constraint.pointB);
-        line(posA.x, posA.y, posB.x, posB.y);
+
+        push(); // Isola os estilos de desenho
+
+        // Verifica o rótulo para decidir o estilo de desenho
+        if (constraint.label === 'mola') {
+            stroke(200, 80, 90); // Azul claro para a mola
+            strokeWeight(3 / camera.zoom);
+            line(posA.x, posA.y, posB.x, posB.y);
+        } else if (constraint.label === 'prego') {
+            stroke(0, 0, 70); // Cinza para o prego
+            strokeWeight(5 / camera.zoom);
+            point(posA.x, posA.y); // Desenha um ponto de "solda"
+        } else if (constraint.parent && constraint.parent.label === 'cabo_eletrico_composite') {
+            stroke(60, 100, 100, 0.7); // Amarelo para eletricidade
+            strokeWeight(2 / camera.zoom);
+            line(posA.x, posA.y, posB.x, posB.y);
+        } else { // Cordas, tubos, etc.
+            stroke(0, 0, 10, 0.5); // Estilo padrão
+            strokeWeight(2 / camera.zoom);
+            line(posA.x, posA.y, posB.x, posB.y);
+        }
+
+        pop(); // Restaura os estilos de desenho
     }
 }
 
