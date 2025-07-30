@@ -75,6 +75,7 @@ function mudarEstado(ragdoll, novoEstado) {
         ragdoll.isOnFire = false;
     }
     ragdoll.adrenalineTimer = 0;
+    ragdoll.isPetrified = false; 
 
     if(novoEstado === 'NOCAUTEADO') {
         ragdoll.tempoNocauteado = millis();
@@ -90,6 +91,11 @@ function mudarEstado(ragdoll, novoEstado) {
         ragdoll.composite.bodies.forEach(b => Matter.Body.setAngularVelocity(b, 0));
     } else if (novoEstado === 'ZUMBI') {
          ragdoll.bodies.torso.customProps.selfRighting = true;
+    } else if (novoEstado === 'PETRIFICADO') {
+        ragdoll.bodies.torso.customProps.selfRighting = false;
+        ragdoll.bodies.head.customProps.selfRighting = false;
+        ragdoll.isPetrified = true;
+        ragdoll.internalLiquids.sangue = 0; 
     }
 }
 
@@ -876,6 +882,17 @@ function handleCollisions(event) {
         const ragdollA = eOrganicoA ? encontrarRagdollPorCorpo(pair.bodyA) : null;
         const ragdollB = eOrganicoB ? encontrarRagdollPorCorpo(pair.bodyB) : null;
 
+        // --- NOVO: Lógica de quebra para ragdolls petrificados ---
+        if (ragdollA && ragdollA.isPetrified && velRelativa > 25) {
+            shatterRagdoll(ragdollA, pair.collision.supports[0]);
+            continue; 
+        }
+        if (ragdollB && ragdollB.isPetrified && velRelativa > 25) {
+            shatterRagdoll(ragdollB, pair.collision.supports[0]);
+            continue; 
+        }
+
+
         if (ragdollA && ragdollA.isVolatile && velRelativa > LIMIAR_EXPLOSAO_VOLATIL) {
             createExplosion(ragdollA.bodies.torso.position, 150, 0.5);
             ragdollA.isVolatile = false;
@@ -949,7 +966,7 @@ function handleCollisions(event) {
 function aplicarDano(corpo, dano, pontoImpacto, isBulletDamage = false) { 
     if (!corpo.customProps) return; 
     const ragdoll = encontrarRagdollPorCorpo(corpo);
-    if (ragdoll && (ragdoll.isImmortal || ragdoll.isPermanentlyDead)) return; 
+    if (ragdoll && (ragdoll.isImmortal || ragdoll.isPermanentlyDead || ragdoll.isPetrified)) return; 
     if (corpo.label === 'corda_segmento') return;
 
     let danoAplicado = dano;
@@ -993,7 +1010,7 @@ function atualizarRagdoll(ragdoll) {
         return;
     }
 
-    if (ragdoll.estado === 'CARBONIZED' || ragdoll.estado === 'SKELETON') {
+    if (ragdoll.estado === 'CARBONIZED' || ragdoll.estado === 'SKELETON' || ragdoll.estado === 'PETRIFICADO') {
         ragdoll.isOnFire = false; return;
     }
     
@@ -1006,6 +1023,14 @@ function atualizarRagdoll(ragdoll) {
         }
     } else if (totalLiquid > 0) {
         ragdoll.deathTimer = 0;
+    }
+
+    if (ragdoll.antiGravityTimer > 0) {
+        ragdoll.antiGravityTimer -= (1000/60);
+        const antiGravForce = -world.gravity.y * 1.1; 
+        ragdoll.composite.bodies.forEach(b => {
+             Matter.Body.applyForce(b, b.position, {x: 0, y: antiGravForce * b.mass});
+        });
     }
 
     if (ragdoll.isCorroding) {
@@ -1216,12 +1241,17 @@ function injectSyringe(ragdoll, seringa) {
                  ragdoll.internalLiquids = { sangue: 10 };
                  ragdoll.composite.bodies.forEach(b => { if (b.customProps) b.customProps.saude = b.customProps.saudeMaxima; });
                  ragdoll.isCorroding = false; ragdoll.corrosionLevel = 0;
+                 if(ragdoll.scale !== 1.0) scaleRagdoll(ragdoll, 1.0 / ragdoll.scale); // Reset scale
                  mudarEstado(ragdoll, 'ATIVO');
                  break;
             case 'zumbi': mudarEstado(ragdoll, 'ZUMBI'); break;
             case 'imortalidade': ragdoll.isImmortal = true; break;
             case 'fogo': if (ragdoll.estado !== 'SKELETON') ragdoll.isOnFire = true; break;
             case 'nitro': ragdoll.isVolatile = true; break;
+            case 'anti_gravidade': ragdoll.antiGravityTimer = 15000; break; // 15 segundos
+            case 'encolher': scaleRagdoll(ragdoll, 0.5); break;
+            case 'crescer': scaleRagdoll(ragdoll, 2.0); break;
+            case 'petrificar': petrifyRagdoll(ragdoll); break;
         }
     }
     seringa.customProps.uses--;
@@ -1286,7 +1316,7 @@ function createRagdoll(x, y, isPlayer) {
 
     const composite = Matter.Composite.create({bodies:[torso,head,legLeft,legRight,armLeft,armRight], constraints:[neck,hipLeft,hipRight,shoulderLeft,shoulderRight]}); 
     
-    return { composite, bodies:{torso,head,legLeft,legRight,armLeft,armRight}, isPlayer, estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, isPermanentlyDead: false, skeletonType: null }; 
+    return { composite, bodies:{torso,head,legLeft,legRight,armLeft,armRight}, isPlayer, estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, isPermanentlyDead: false, skeletonType: null, antiGravityTimer: 0, isPetrified: false, scale: 1.0 }; 
 }
 
 function getSyringeColor(type) {
@@ -1294,6 +1324,10 @@ function getSyringeColor(type) {
         case 'seringa_vazia': return color(0, 0, 80); case 'seringa_sangue': return color(0, 80, 70); case 'seringa_acido': return color(100, 80, 70);
         case 'seringa_adrenalina': return color(60, 100, 90); case 'seringa_cura': return color(340, 70, 90); case 'seringa_zumbi': return color(120, 30, 50);
         case 'seringa_imortalidade': return color(50, 70, 100); case 'seringa_fogo': return color(20, 100, 100); case 'seringa_nitro': return color(40, 90, 80);
+        case 'seringa_anti_gravidade': return color(200, 60, 90);
+        case 'seringa_encolher': return color(300, 70, 80);
+        case 'seringa_crescer': return color(250, 80, 90);
+        case 'seringa_petrificar': return color(0, 0, 50);
         default: return color(0, 0, 60);
     }
 }
@@ -1480,17 +1514,20 @@ function desenharUI() {
         const x = ragdoll.bodies.torso.position.x;
         const y = ragdoll.bodies.head.position.y - 40; 
 
-        fill(0, 80, 80); rect(x-25, y-5, 50, 10); 
-        fill(120, 80, 80); rect(x-25, y-5, map(vida, 0, 100, 0, 50), 10); 
+        if(!ragdoll.isPetrified) {
+            fill(0, 80, 80); rect(x-25, y-5, 50, 10); 
+            fill(120, 80, 80); rect(x-25, y-5, map(vida, 0, 100, 0, 50), 10); 
 
-        fill(0, 100, 60); rect(x - 25, y + 7, 50, 5);
-        fill(0, 80, 80); rect(x - 25, y + 7, map(bloodAmount, 0, 10, 0, 50), 5);
+            fill(0, 100, 60); rect(x - 25, y + 7, 50, 5);
+            fill(0, 80, 80); rect(x - 25, y + 7, map(bloodAmount, 0, 10, 0, 50), 5);
+        }
 
         fill(255); textSize(10 / camera.zoom); textAlign(CENTER, BOTTOM); 
         let statusText = ragdoll.estado;
         if (ragdoll.isPermanentlyDead) statusText = 'MORTO (PERMANENTE)';
         else if (ragdoll.deathTimer > 0) statusText = `MORRENDO (${max(0, (5 - (millis() - ragdoll.deathTimer)/1000)).toFixed(1)}s)`;
         else if (ragdoll.bodies.torso.customProps.mode === 'donor') statusText = 'DOADOR';
+        if (ragdoll.antiGravityTimer > 0) statusText = 'FLUTUANDO';
         text(statusText, x, y - 8); 
     }); 
 }
@@ -1543,7 +1580,8 @@ function drawContainerUI(container) {
          text('Vazia', x + 10, yOffset);
     } else {
          for (const liquid in props.liquidContents) {
-            const liquidName = liquid.charAt(0).toUpperCase() + liquid.slice(1);
+            let liquidName = liquid.charAt(0).toUpperCase() + liquid.slice(1);
+            liquidName = liquidName.replace('_', ' ');
             const liquidColor = getSyringeColor('seringa_' + liquid);
             fill(liquidColor); text(liquidName, x + 10, yOffset);
             yOffset += 20;
@@ -1578,6 +1616,7 @@ function desenharParticulas() {
             else if (p.type === 'explosion') fill(random(20, 50), 100, 100, p.lifespan/100);
             else if (p.type === 'smoke') fill(0, 0, 50, p.lifespan/255);
             else if (p.type === 'acid') fill(100, 80, 70, p.lifespan/200);
+            else if (p.type === 'stone') fill(0, 0, random(30, 50), p.lifespan/255);
             else if (p.color) { const c = p.color; fill(hue(c), saturation(c), brightness(c), p.lifespan/255); } 
             else fill(0, 80, 70, p.lifespan/255);
             
@@ -1603,6 +1642,9 @@ function drawBodies(bodies) {
                 const charcoalColor = color(0,0,15);
                 const originalColor = ragdoll.bodies.torso.customProps.originalColor;
                 if(originalColor) fillColor = lerpColor(originalColor, charcoalColor, ragdoll.charring);
+            }
+            if(ragdoll.isPetrified) {
+                fillColor = color(0, 0, 45);
             }
         }
         
@@ -1876,6 +1918,55 @@ function mobileToggleDonor() {
 
 // =========== NOVAS FUNÇÕES DE LÓGICA E CRIAÇÃO ===========
 
+// --- NOVO: Funções para Seringas Especiais ---
+function scaleRagdoll(ragdoll, factor) {
+    if (!ragdoll) return;
+    ragdoll.scale = (ragdoll.scale || 1.0) * factor;
+
+    ragdoll.composite.bodies.forEach(body => {
+        const originalVertices = body.customProps.originalVertices || body.vertices.map(v => ({ x: v.x - body.position.x, y: v.y - body.position.y }));
+        if (!body.customProps.originalVertices) {
+            body.customProps.originalVertices = originalVertices;
+        }
+
+        Matter.Body.scale(body, factor, factor);
+        Matter.Body.setMass(body, body.mass * (factor * factor)); 
+    });
+}
+
+function petrifyRagdoll(ragdoll) {
+    if (!ragdoll) return;
+    mudarEstado(ragdoll, 'PETRIFICADO');
+    ragdoll.isImmortal = true; 
+    
+    ragdoll.composite.bodies.forEach(body => {
+        Matter.Body.setDensity(body, 0.05); // Muito pesado
+    });
+}
+
+function shatterRagdoll(ragdoll, impactPoint) {
+    if (!ragdoll) return;
+    
+    // Spawn de partículas de pedra
+    for (let i = 0; i < 50; i++) {
+        particulas.push({ 
+            pos: createVector(impactPoint.x, impactPoint.y), 
+            vel: p5.Vector.random2D().mult(random(2, 10)), 
+            lifespan: 200, 
+            type: 'stone' 
+        });
+    }
+
+    // Remove o ragdoll do mundo
+    Matter.World.remove(world, ragdoll.composite);
+    if(ragdoll.isPlayer) {
+        playerRagdoll = null;
+    } else {
+        outrosRagdolls = outrosRagdolls.filter(r => r !== ragdoll);
+    }
+}
+
+
 // --- NOVO: Sistema de Eletricidade ---
 function updateElectricitySystem() {
     const allBodies = Matter.Composite.allBodies(world);
@@ -2063,4 +2154,701 @@ function detonateAllC4s() {
         }
     });
     c4s = []; 
+}
+```
+---
+### `style (4).css`
+```css
+/* Base styles for the entire page */
+body { 
+    margin: 0; 
+    padding: 0; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    width: 100vw;
+    background-color: #1a1a1a; /* Darker background for outside game area */
+    overflow: hidden; 
+    font-family: 'Roboto', sans-serif;
+    color: white; 
+}
+
+/* --- NEW: Wrapper to maintain aspect ratio --- */
+#aspect-ratio-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#root-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    /* Maintain a 4:3 aspect ratio */
+    aspect-ratio: 800 / 600; 
+    box-shadow: 0 5px 25px rgba(0,0,0,0.7);
+}
+
+/* --- MODIFIED: Game container now fills its parent --- */
+#game-container { 
+    position: relative; 
+    width: 100%; 
+    height: 100%; 
+    border: 1px solid #444; 
+    border-radius: 4px; 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5); 
+    display: none; /* Initially hidden, shown by JS */
+    overflow: hidden; 
+    background-color: #222; 
+}
+canvas { 
+    display: block; 
+    width: 100%;
+    height: 100%;
+}
+
+/* --- REMOVED: .fullscreen-mode class is no longer needed --- */
+
+/* Top Bar Styling */
+#top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40px; 
+    background-color: #222; 
+    border-bottom: 1px solid #444; 
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    padding: 0 10px;
+    box-sizing: border-box;
+    z-index: 20; 
+}
+#top-bar button {
+    background: none;
+    border: none;
+    color: #aaa; 
+    font-size: 24px; 
+    padding: 0 12px;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.1s ease;
+    box-shadow: none; 
+    width: auto; 
+    margin: 0; 
+}
+#top-bar button:hover {
+    color: white;
+    transform: translateY(-1px);
+}
+#top-bar button.active-category-icon {
+    color: #4CAF50; 
+}
+
+/* Left Sidebar Styling */
+#left-sidebar { 
+    position: absolute; 
+    top: 40px; 
+    left: 0; 
+    width: 250px; 
+    height: calc(100% - 40px - 40px); 
+    background-color: rgba(30,30,30,0.7); 
+    border-right: 1px solid #444; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: flex-start; 
+    z-index: 10; 
+    padding: 10px; 
+    box-sizing: border-box;
+    transition: left 0.3s ease-out; 
+}
+#left-sidebar.hidden { 
+    left: -250px; 
+    pointer-events: none;
+}
+
+/* Filter bar */
+.filter-bar {
+    display: flex;
+    width: 100%;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #444;
+}
+.filter-bar input {
+    flex-grow: 1;
+    background-color: #333;
+    border: 1px solid #555;
+    color: white;
+    padding: 5px 8px;
+    font-size: 14px;
+    border-radius: 3px;
+    outline: none;
+}
+.filter-bar input::placeholder {
+    color: #888;
+}
+.filter-bar button {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 18px;
+    padding: 0 5px;
+    cursor: pointer;
+    width: auto; 
+}
+
+/* Item grid wrapper (scrollable area for categories) */
+#item-grid-wrapper {
+    flex-grow: 1; 
+    width: 100%;
+    overflow-y: auto; 
+    padding-right: 5px; 
+    box-sizing: border-box;
+}
+/* Custom scrollbar styles */
+#item-grid-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+#item-grid-wrapper::-webkit-scrollbar-track {
+    background: #333;
+    border-radius: 10px;
+}
+#item-grid-wrapper::-webkit-scrollbar-thumb {
+    background: #666;
+    border-radius: 10px;
+}
+#item-grid-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+
+
+/* Individual item categories */
+.item-category {
+    display: none; 
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 15px; 
+}
+.item-category.active {
+    display: flex; 
+}
+
+.category-label {
+    color: #4CAF50; 
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #3a3a3a; 
+    padding-bottom: 3px;
+}
+
+.item-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 8px; 
+    width: 100%;
+}
+
+/* Styling for individual item buttons in the grid */
+.item-btn {
+    width: 60px; 
+    height: 60px;
+    padding: 0; 
+    border-radius: 4px; 
+    background-color: #444;
+    color: white;
+    font-size: 24px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    border: 1px solid #555;
+    transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+}
+.item-btn:hover {
+    background-color: #555;
+    transform: translateY(-0.5px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    border-color: #777;
+}
+.item-btn.active-create-type { 
+    background-color: #2a8d2a;
+    border-color: #3f9e3f;
+    box-shadow: 0 0 0 2px #3f9e3f, 0 2px 5px rgba(42, 141, 42, 0.5); 
+}
+.item-btn.active-create-type:hover {
+    background-color: #3f9e3f;
+    transform: translateY(0); 
+}
+
+/* Styling for general tool buttons (like slow mo, freeze, clear) */
+.tool-btn {
+    width: 100%; 
+    padding: 8px 12px;
+    font-size: 14px;
+    background-color: #3a3a3a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #eee;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+.tool-btn:hover {
+    background-color: #4a4a4a;
+    transform: translateY(-0.5px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.tool-btn.ativo { 
+    background-color: #2a8d2a;
+    border-color: #3f9e3f;
+}
+.tool-btn.ativo:hover {
+    background-color: #3f9e3f;
+}
+
+/* Bottom Bar Styling (Global Actions) */
+#bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40px; 
+    background-color: rgba(0,0,0,0); 
+    border-top: 1px solid #444;
+    display: flex;
+    justify-content: space-around; 
+    align-items: center;
+    padding: 0 10px;
+    box-sizing: border-box;
+    z-index: 20;
+    pointer-events: none; 
+}
+#bottom-bar button {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 12px; 
+    padding: 0 5px;
+    cursor: pointer;
+    width: auto;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.2s ease;
+    pointer-events: auto; 
+}
+#bottom-bar button:hover {
+    color: white;
+    transform: none; 
+    box-shadow: none;
+}
+
+/* --- MODIFIED: Main Menu (SOLUÇÃO PARA O BUG DE ALINHAMENTO) --- */
+#main-menu {
+    position: absolute; 
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center; /* Centraliza verticalmente */
+    justify-content: flex-start; /* Alinha os itens à esquerda para começar */
+    z-index: 100;
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    text-shadow: none;
+    background-color: #2d2d2d;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), 
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    overflow: hidden;
+    padding: 0 50px; /* Adiciona o espaçamento nas laterais do contêiner pai */
+    box-sizing: border-box; /* Garante que o padding não aumente o tamanho */
+}
+
+.main-menu-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    /* O padding-left foi movido para o #main-menu */
+}
+
+.main-menu-list button {
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 16px;
+    text-align: left;
+    padding: 8px 0;
+    cursor: pointer;
+    text-transform: lowercase;
+    font-family: 'Roboto', sans-serif;
+    transition: color 0.2s ease;
+}
+
+.main-menu-list button:hover {
+    color: white;
+}
+
+.main-menu-title {
+    margin-left: auto; /* Mágica do Flexbox: empurra o título para a direita */
+    /* O padding-right foi movido para o #main-menu */
+}
+
+.main-menu-title h1 {
+    font-family: 'Roboto', sans-serif;
+    font-size: 48px;
+    font-weight: 400;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}}
+
+/* --- MODIFIED: Map Selection now fills its container --- */
+#map-selection-screen {
+    position: absolute; 
+    width: 100%;
+    height: 100%;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 90;
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    background-color: #2d2d2d;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), 
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+#map-selection-screen h2 {
+    font-size: 32px;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #eee;
+}
+.map-grid-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+.map-preview-btn {
+    width: 180px;
+    height: 135px;
+    background-color: #222;
+    border: 2px solid #444;
+    color: #ccc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    box-sizing: border-box;
+}
+.map-preview-btn:hover {
+    border-color: #666;
+    background-color: #2a2a2a;
+    transform: translateY(-2px);
+}
+.map-preview-btn .map-name {
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.map-preview-visual {
+    width: 100%;
+    height: 80px;
+    background-color: #333;
+    border: 1px solid #555;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+}
+/* Visual for Mountain Map */
+#montanhas-visual .mountain {
+    position: absolute;
+    bottom: -1px; /* Overlap slightly to prevent gaps */
+    background-color: #1e1e1e;
+}
+#montanhas-visual .m1 {
+    left: -10%;
+    width: 60%;
+    height: 70%;
+    clip-path: polygon(0% 100%, 0% 30%, 50% 0%, 100% 70%, 100% 100%);
+}
+#montanhas-visual .m2 {
+    left: 25%;
+    width: 60%;
+    height: 100%;
+    clip-path: polygon(0% 100%, 20% 40%, 50% 0%, 80% 40%, 100% 100%);
+}
+ #montanhas-visual .m3 {
+    right: -15%;
+    width: 60%;
+    height: 85%;
+    clip-path: polygon(0% 100%, 0% 30%, 100% 0%, 100% 100%);
+}
+ /* Visual for Water Map */
+#agua-visual .water {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 40%;
+    background-color: #3a5fcd; /* Royal Blue */
+    opacity: 0.7;
+}
+#agua-visual .ground {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 30%;
+    height: 60%;
+    background-color: #222;
+}
+/* Visual for Building Map */
+#predio-visual .building-wall {
+    position: absolute;
+    bottom: 0;
+    background-color: #2e2e2e;
+}
+#predio-visual .bw1 {
+    left: 10%;
+    width: 20%;
+    height: 100%;
+}
+#predio-visual .bw2 {
+    left: 30%;
+    width: 40%;
+    height: 40%;
+}
+#predio-visual .bw3 {
+    right: 10%;
+    width: 20%;
+    height: 100%;
+}
+/* Visual for Abyss Map */
+#abismo-visual .platform {
+    position: absolute;
+    bottom: 30%;
+    height: 20%;
+    background-color: #252525;
+}
+#abismo-visual .p1 {
+    left: 0;
+    width: 35%;
+}
+#abismo-visual .p2 {
+    right: 0;
+    width: 35%;
+}
+
+
+/* Mobile controls styling */
+#mobile-controls {
+    position: absolute;
+    bottom: 50px; /* Raised a bit to not be on the edge */
+    left: 0;
+    width: 100%;
+    background-color: rgba(0,0,0,0); 
+    display: none; 
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px; 
+    box-sizing: border-box;
+    z-index: 10;
+    pointer-events: none; 
+}
+#mobile-controls.active {
+    display: flex; 
+}
+.control-group {
+    display: flex;
+    gap: 10px; 
+    height: 100%; 
+    align-items: center;
+    pointer-events: auto; /* Allow clicks on the group */
+}
+#mobile-controls button {
+    background-color: rgba(68, 68, 68, 0.7); /* More transparent */
+    color: #eee;
+    border: 1px solid #666;
+    padding: 0; 
+    font-size: 24px; 
+    border-radius: 50%; /* Circular buttons */
+    width: 50px; 
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+    pointer-events: auto; 
+    margin: 0; 
+    transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10+ */
+    user-select: none; /* Standard */
+}
+#mobile-controls button:active { 
+    background-color: rgba(85, 85, 85, 0.9);
+    transform: translateY(1px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Modal Styles */
+.game-modal {
+    position: absolute; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: none; /* Start hidden */
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+.modal-content {
+    background-color: #2a2a2a; 
+    border: 1px solid #444;
+    border-radius: 0; 
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    text-align: center;
+    min-width: 400px; 
+    max-width: 90%;
+    color: #ccc;
+}
+.modal-content h2 {
+    color: white; 
+    margin-bottom: 25px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+.close-modal-btn {
+    margin-top: 30px;
+    padding: 10px 20px;
+    background-color: #444; 
+    border: 1px solid #666;
+    color: white;
+    border-radius: 0; 
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-transform: uppercase;
+}
+.close-modal-btn:hover {
+    background-color: #555;
+}
+.modal-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    text-align: left;
+    font-size: 14px;
+    color: #ccc;
+}
+.modal-content ul li {
+    margin-bottom: 10px; 
+    padding-left: 15px;
+    position: relative;
+}
+ .modal-content ul li::before { 
+    content: '-';
+    position: absolute;
+    left: 0;
+    color: #4CAF50;
+}
+/* Settings specific styles */
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    text-align: left;
+}
+.settings-grid label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px;
+    background-color: #333;
+    border: 1px solid #444;
+    transition: background-color 0.2s;
+}
+ .settings-grid label:hover {
+     background-color: #3a3a3a;
+ }
+.settings-grid input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #4CAF50;
+}
+
+
+/* Floating Tool Panel */
+#floating-tool-panel { 
+    position: absolute;
+    top: 50px; 
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(30, 30, 30, 0.85);
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 8px 15px;
+    color: #eee;
+    font-size: 14px;
+    z-index: 50; 
+    display: none; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    white-space: nowrap; 
+}
+/* --- NOVO: Estilos de Notificação --- */
+#notification-container {
+    position: fixed; /* Fica fixo na tela */
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999; /* Fica acima de tudo */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none; /* Não interfere com cliques */
+}
+
+.notification-toast {
+    background-color: rgba(30, 30, 30, 0.9);
+    border: 1px solid #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    border-radius: 5px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.notification-toast.show {
+    opacity: 1;
+    transform: translateY(0);
 }
