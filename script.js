@@ -303,7 +303,7 @@ function setupControles() {
     document.getElementById('icon-favorites').addEventListener('click', () => switchCategoryAndToggleSidebar('category-favorites-content', 'icon-favorites')); 
     document.getElementById('icon-items-basic').addEventListener('click', () => switchCategoryAndToggleSidebar('category-items-basic', 'icon-items-basic'));
     document.getElementById('icon-firearms').addEventListener('click', () => switchCategoryAndToggleSidebar('category-firearms-content', 'icon-firearms'));
-    // --- NOVO: Botão da categoria de explosivos ---
+    // --- ADICIONADO AQUI ---
     document.getElementById('icon-explosives').addEventListener('click', () => switchCategoryAndToggleSidebar('category-explosives-content', 'icon-explosives'));
     document.getElementById('icon-people').addEventListener('click', () => switchCategoryAndToggleSidebar('category-people-content', 'icon-people'));
     document.getElementById('icon-vehicles').addEventListener('click', () => switchCategoryAndToggleSidebar('category-vehicles-content', 'icon-vehicles')); 
@@ -347,6 +347,7 @@ function setupControles() {
     document.querySelector('.clear-filter').addEventListener('click', (e) => {
         document.querySelector('.filter-bar input').value = ''; 
     });
+    
     
     const btnLeft = document.getElementById('btnVehicleLeft');
     const btnRight = document.getElementById('btnVehicleRight');
@@ -393,7 +394,7 @@ function switchCategory(contentCategoryId) {
     let topBarIconElement = null;
     if (contentCategoryId === 'category-items-basic') topBarIconElement = document.getElementById('icon-items-basic');
     else if (contentCategoryId === 'category-firearms-content') topBarIconElement = document.getElementById('icon-firearms');
-    // --- NOVO: Caso para explosivos ---
+    // --- ADICIONADO AQUI ---
     else if (contentCategoryId === 'category-explosives-content') topBarIconElement = document.getElementById('icon-explosives');
     else if (contentCategoryId === 'category-people-content') topBarIconElement = document.getElementById('icon-people');
     else if (contentCategoryId === 'category-vehicles-content') topBarIconElement = document.getElementById('icon-vehicles'); 
@@ -1924,17 +1925,20 @@ function updateExplosives() {
 // --- NOVO: Funções para criar as novas ferramentas ---
 function createWeld(body, point) {
     const weld = Matter.Constraint.create({
-        pointA: point, // Ponto no mundo
+        label: 'prego', // <-- Adiciona um rótulo
+        pointA: point, 
         bodyB: body,
-        pointB: Matter.Vector.sub(point, body.position), // Ponto local no corpo
-        stiffness: 1,
+        pointB: Matter.Vector.sub(point, body.position),
+        stiffness: 0.7, // Um pouco de flexibilidade
         length: 0
     });
     Matter.World.add(world, weld);
+    cordas.push(weld); // <-- Guarda a junta para ser desenhada
 }
 
 function createSpring(point1, body1, point2, body2) {
     const spring = Matter.Constraint.create({
+        label: 'mola', // <-- Adiciona um rótulo
         pointA: body1 ? Matter.Vector.sub(point1, body1.position) : point1,
         bodyA: body1,
         bodyB: body2,
