@@ -589,6 +589,7 @@ function keyPressed() {
     else if (key === 'b' || key === 'B') {
         detonateAllC4s();
     }
+        
     // --- NOVO: Tecla de ativação manual 'F' ---
     else if (key === 'f' || key === 'F') {
         const worldMouse = screenToWorld(mouseX, mouseY);
