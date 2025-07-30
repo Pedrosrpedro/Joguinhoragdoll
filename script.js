@@ -51,6 +51,8 @@ const LIMIAR_DE_DANO_VELOCIDADE = 5.0, LIMIAR_EMPALAMENTO = 15.0;
 const LIMIAR_INJECAO_SERINGA = 7.0;
 const LIMIAR_NOCAUTE_VELOCIDADE = 8.0; 
 const LIMIAR_EXPLOSAO_VOLATIL = 12.0; 
+// --- NOVO: Limiar de quebra para ragdolls petrificados ---
+const LIMIAR_QUEBRA_PETRIFICADO = 25.0;
 const DANO_POR_VELOCIDADE = 3.0; 
 const DANO_PISTOLA = 50; 
 const DANO_CABECAMULTIPLIER = 1.5; 
@@ -68,14 +70,20 @@ let currentGravityY = 2.5;
 
 // --- Core Game Functions ---
 function mudarEstado(ragdoll, novoEstado) { 
-    if(!ragdoll || ragdoll.estado === novoEstado) return; 
+    // MODIFICADO: Não permite mudança se petrificado ou se o estado já é o mesmo
+    if(!ragdoll || ragdoll.estado === novoEstado || (ragdoll.isPetrified && novoEstado !== 'ATIVO')) return; 
+    
     ragdoll.estado = novoEstado; 
     
     if (novoEstado !== 'MORTO' && novoEstado !== 'CARBONIZED') {
         ragdoll.isOnFire = false;
     }
     ragdoll.adrenalineTimer = 0;
-    ragdoll.isPetrified = false; 
+
+    // Se não for petrificado, reseta a flag
+    if (novoEstado !== 'PETRIFICADO') {
+        ragdoll.isPetrified = false; 
+    }
 
     if(novoEstado === 'NOCAUTEADO') {
         ragdoll.tempoNocauteado = millis();
@@ -95,6 +103,7 @@ function mudarEstado(ragdoll, novoEstado) {
         ragdoll.bodies.torso.customProps.selfRighting = false;
         ragdoll.bodies.head.customProps.selfRighting = false;
         ragdoll.isPetrified = true;
+        ragdoll.isImmortal = true; // Não pode morrer de dano normal, apenas quebrar
         ragdoll.internalLiquids.sangue = 0; 
     }
 }
@@ -882,12 +891,12 @@ function handleCollisions(event) {
         const ragdollA = eOrganicoA ? encontrarRagdollPorCorpo(pair.bodyA) : null;
         const ragdollB = eOrganicoB ? encontrarRagdollPorCorpo(pair.bodyB) : null;
 
-        // --- NOVO: Lógica de quebra para ragdolls petrificados ---
-        if (ragdollA && ragdollA.isPetrified && velRelativa > 25) {
+        // --- MODIFICADO: Lógica de quebra para ragdolls petrificados ---
+        if (ragdollA && ragdollA.isPetrified && velRelativa > LIMIAR_QUEBRA_PETRIFICADO) {
             shatterRagdoll(ragdollA, pair.collision.supports[0]);
             continue; 
         }
-        if (ragdollB && ragdollB.isPetrified && velRelativa > 25) {
+        if (ragdollB && ragdollB.isPetrified && velRelativa > LIMIAR_QUEBRA_PETRIFICADO) {
             shatterRagdoll(ragdollB, pair.collision.supports[0]);
             continue; 
         }
@@ -1025,11 +1034,17 @@ function atualizarRagdoll(ragdoll) {
         ragdoll.deathTimer = 0;
     }
 
+    // MODIFICADO: Lógica de Antigravidade para levitação suave
     if (ragdoll.antiGravityTimer > 0) {
         ragdoll.antiGravityTimer -= (1000/60);
-        const antiGravForce = -world.gravity.y * 1.1; 
         ragdoll.composite.bodies.forEach(b => {
-             Matter.Body.applyForce(b, b.position, {x: 0, y: antiGravForce * b.mass});
+             // Força que anula exatamente a gravidade para aquele corpo
+             const antiGravForce = -world.gravity.y * b.mass;
+             Matter.Body.applyForce(b, b.position, {x: 0, y: antiGravForce});
+
+             // Adiciona "arrasto" para suavizar o movimento e evitar aceleração infinita
+             b.velocity.x *= 0.99;
+             b.velocity.y *= 0.99;
         });
     }
 
@@ -1074,8 +1089,10 @@ function atualizarRagdoll(ragdoll) {
         let bloodStrengthFactor = constrain(bloodRatio, 0.1, 1.0);
         if (ragdoll.adrenalineTimer > 0) fatorSaude = 2.0; 
 
-        const forcaAtual = FORCA_TENSORA * fatorSaude * bloodStrengthFactor; 
-        const forcaPescocoAtual = FORCA_PESCOCO * bloodStrengthFactor;
+        // Modifica a força baseada na escala para evitar instabilidade ao encolher
+        const scaleFactor = ragdoll.scale < 1.0 ? ragdoll.scale * 0.5 : 1.0;
+        const forcaAtual = FORCA_TENSORA * fatorSaude * bloodStrengthFactor * scaleFactor; 
+        const forcaPescocoAtual = FORCA_PESCOCO * bloodStrengthFactor * scaleFactor;
 
         if (torso.customProps.selfRighting) Matter.Body.setAngularVelocity(torso, torso.angularVelocity + (menorDiferencaAngular(torso.angle, 0) * forcaAtual) - (torso.angularVelocity * 0.2));
         if (head.customProps.selfRighting && ragdoll.composite.constraints.find(c => c.label === 'neck')) Matter.Body.setAngularVelocity(head, head.angularVelocity + (menorDiferencaAngular(head.angle, 0) * forcaPescocoAtual) - (head.angularVelocity * 0.2));
@@ -1238,6 +1255,11 @@ function injectSyringe(ragdoll, seringa) {
             case 'acido': ragdoll.isCorroding = true; break;
             case 'adrenalina': ragdoll.adrenalineTimer = 10000; break;
             case 'cura':
+                 // Reverte petrificação e outras condições
+                 ragdoll.isPetrified = false;
+                 ragdoll.isImmortal = false;
+                 ragdoll.composite.bodies.forEach(body => Matter.Body.setDensity(body, 0.002)); // Restaura densidade
+                 
                  ragdoll.internalLiquids = { sangue: 10 };
                  ragdoll.composite.bodies.forEach(b => { if (b.customProps) b.customProps.saude = b.customProps.saudeMaxima; });
                  ragdoll.isCorroding = false; ragdoll.corrosionLevel = 0;
@@ -1291,6 +1313,7 @@ function createCable(point1, body1, point2, body2, cableType) {
     cordas.push(cableComposite);
 }
 
+// MODIFICADO: createRagdoll agora armazena e retorna as definições das juntas
 function createRagdoll(x, y, isPlayer) { 
     const group = Matter.Body.nextGroup(true); 
     const escalaAltura = random(0.9, 1.1), escalaLargura = random(0.9, 1.1);
@@ -1308,15 +1331,33 @@ function createRagdoll(x, y, isPlayer) {
     
     const criarJunta = (bodyA, bodyB, pA, pB, label) => Matter.Constraint.create({bodyA, bodyB, pointA:pA, pointB:pB, stiffness:1.0, length:0, label}); 
 
-    const neck = criarJunta(torso, head, {x:0, y:-45*escalaAltura}, {x:0,y:0}, 'neck'); 
-    const hipLeft = criarJunta(torso, legLeft, {x:-12*escalaLargura, y:30*escalaAltura}, {x:0,y:-30*escalaAltura}, 'hipLeft'); 
-    const hipRight = criarJunta(torso, legRight, {x:12*escalaLargura, y:30*escalaAltura}, {x:0,y:-30*escalaAltura}, 'hipRight'); 
-    const shoulderLeft = criarJunta(torso, armLeft, {x:20*escalaLargura, y:-35*escalaAltura}, {x:0,y:-25*escalaAltura}, 'shoulderLeft'); 
-    const shoulderRight = criarJunta(torso, armRight, {x:-20*escalaLargura, y:-35*escalaAltura}, {x:0,y:-25*escalaAltura}, 'shoulderRight'); 
+    // Guardar as definições originais para poder escalar depois
+    const jointDefs = [
+        { bodyA: 'torso', bodyB: 'head', pA: {x:0, y:-45*escalaAltura}, pB: {x:0,y:0}, label: 'neck' },
+        { bodyA: 'torso', bodyB: 'legLeft', pA: {x:-12*escalaLargura, y:30*escalaAltura}, pB: {x:0,y:-30*escalaAltura}, label: 'hipLeft' },
+        { bodyA: 'torso', bodyB: 'legRight', pA: {x:12*escalaLargura, y:30*escalaAltura}, pB: {x:0,y:-30*escalaAltura}, label: 'hipRight' },
+        { bodyA: 'torso', bodyB: 'shoulderLeft', pA: {x:20*escalaLargura, y:-35*escalaAltura}, pB: {x:0,y:-25*escalaAltura}, label: 'shoulderLeft' },
+        { bodyA: 'torso', bodyB: 'shoulderRight', pA: {x:-20*escalaLargura, y:-35*escalaAltura}, pB: {x:0,y:-25*escalaAltura}, label: 'shoulderRight' }
+    ];
 
-    const composite = Matter.Composite.create({bodies:[torso,head,legLeft,legRight,armLeft,armRight], constraints:[neck,hipLeft,hipRight,shoulderLeft,shoulderRight]}); 
+    const bodies = {torso, head, legLeft, legRight, armLeft, armRight};
+    const constraints = jointDefs.map(def => {
+        return criarJunta(bodies[def.bodyA], bodies[def.bodyB], def.pA, def.pB, def.label);
+    });
+
+    const composite = Matter.Composite.create({bodies:Object.values(bodies), constraints:constraints}); 
     
-    return { composite, bodies:{torso,head,legLeft,legRight,armLeft,armRight}, isPlayer, estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, isPermanentlyDead: false, skeletonType: null, antiGravityTimer: 0, isPetrified: false, scale: 1.0 }; 
+    return { 
+        composite, 
+        bodies,
+        jointDefs, // <-- Exporta as definições para uso futuro
+        isPlayer, 
+        estado: 'ATIVO', tempoNocauteado:0, tempoMorte:0, isImmortal: false, isOnFire: false, 
+        adrenalineTimer: 0, charring: 0, internalLiquids: { sangue: 10 }, 
+        isVolatile: false, isCorroding: false, corrosionLevel: 0, deathTimer: 0, 
+        isPermanentlyDead: false, skeletonType: null, antiGravityTimer: 0, 
+        isPetrified: false, scale: 1.0 
+    }; 
 }
 
 function getSyringeColor(type) {
@@ -1512,7 +1553,7 @@ function desenharUI() {
         const vida = (ragdoll.bodies.torso.customProps.saude + ragdoll.bodies.head.customProps.saude) / 2; 
         const bloodAmount = (ragdoll.internalLiquids.sangue || 0);
         const x = ragdoll.bodies.torso.position.x;
-        const y = ragdoll.bodies.head.position.y - 40; 
+        const y = ragdoll.bodies.head.position.y - (40 / ragdoll.scale); // Ajusta a UI para a escala
 
         if(!ragdoll.isPetrified) {
             fill(0, 80, 80); rect(x-25, y-5, 50, 10); 
@@ -1528,6 +1569,7 @@ function desenharUI() {
         else if (ragdoll.deathTimer > 0) statusText = `MORRENDO (${max(0, (5 - (millis() - ragdoll.deathTimer)/1000)).toFixed(1)}s)`;
         else if (ragdoll.bodies.torso.customProps.mode === 'donor') statusText = 'DOADOR';
         if (ragdoll.antiGravityTimer > 0) statusText = 'FLUTUANDO';
+        if (ragdoll.isPetrified) statusText = 'PETRIFICADO';
         text(statusText, x, y - 8); 
     }); 
 }
@@ -1918,29 +1960,55 @@ function mobileToggleDonor() {
 
 // =========== NOVAS FUNÇÕES DE LÓGICA E CRIAÇÃO ===========
 
-// --- NOVO: Funções para Seringas Especiais ---
+// --- MODIFICADO: Função para escalar ragdolls que recria as juntas ---
 function scaleRagdoll(ragdoll, factor) {
-    if (!ragdoll) return;
-    ragdoll.scale = (ragdoll.scale || 1.0) * factor;
+    if (!ragdoll || !ragdoll.bodies.torso || !ragdoll.jointDefs) return;
 
+    // Atualiza a escala geral do ragdoll
+    ragdoll.scale *= factor;
+    const newScale = ragdoll.scale;
+
+    // 1. Remove as juntas antigas do mundo e do composite do ragdoll
+    Matter.Composite.remove(ragdoll.composite, ragdoll.composite.constraints, true); // O 'true' remove recursivamente
+    ragdoll.composite.constraints = [];
+
+    // 2. Escala cada corpo individualmente
     ragdoll.composite.bodies.forEach(body => {
-        const originalVertices = body.customProps.originalVertices || body.vertices.map(v => ({ x: v.x - body.position.x, y: v.y - body.position.y }));
-        if (!body.customProps.originalVertices) {
-            body.customProps.originalVertices = originalVertices;
-        }
-
         Matter.Body.scale(body, factor, factor);
-        Matter.Body.setMass(body, body.mass * (factor * factor)); 
     });
+
+    // 3. Recria as juntas com posições de ancoragem escaladas
+    const newConstraints = ragdoll.jointDefs.map(def => {
+        const bodyA = ragdoll.bodies[def.bodyA];
+        const bodyB = ragdoll.bodies[def.bodyB];
+        
+        // Escala os pontos de ancoragem originais pela escala *total* acumulada
+        const newPointA = { x: def.pA.x * newScale, y: def.pA.y * newScale };
+        const newPointB = { x: def.pB.x * newScale, y: def.pB.y * newScale };
+        
+        return Matter.Constraint.create({
+            bodyA: bodyA,
+            bodyB: bodyB,
+            pointA: newPointA,
+            pointB: newPointB,
+            stiffness: 1.0,
+            length: 0,
+            label: def.label
+        });
+    });
+
+    // 4. Adiciona as novas juntas de volta ao mundo e ao composite
+    Matter.Composite.add(ragdoll.composite, newConstraints);
 }
 
+// --- NOVO: Funções para Seringas Especiais ---
 function petrifyRagdoll(ragdoll) {
     if (!ragdoll) return;
     mudarEstado(ragdoll, 'PETRIFICADO');
-    ragdoll.isImmortal = true; 
     
+    // Aumenta drasticamente a densidade para ficar pesado como pedra
     ragdoll.composite.bodies.forEach(body => {
-        Matter.Body.setDensity(body, 0.05); // Muito pesado
+        Matter.Body.setDensity(body, 0.05); 
     });
 }
 
@@ -2048,7 +2116,7 @@ function updatePistons() {
         const base = pistonComp.bodies.find(b => b.label === 'pistao_base');
         if (!base || !base.customProps) return;
 
-        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manualmente
+        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manually
         const shouldBeActive = base.customProps.isPowered || base.customProps.isActive;
         const prismatic = pistonComp.constraints.find(c => c.stiffness === 0.01);
         
