@@ -368,6 +368,24 @@ function setupControles() {
     document.getElementById('btnFreeze').addEventListener('click', (e) => { e.preventDefault(); mobileFreeze(); });
     document.getElementById('btnDonor').addEventListener('click', (e) => { e.preventDefault(); mobileToggleDonor(); });
 }
+// Adicione no final da função setupControles()
+document.getElementById('btnMobileDetonate').addEventListener('click', (e) => {
+    e.preventDefault();
+    detonateAllC4s();
+});
+
+document.getElementById('btnMobileActivate').addEventListener('click', (e) => {
+    e.preventDefault();
+    // Lógica similar à tecla F, mas no centro da tela
+    const centerScreen = screenToWorld(width/2, height/2);
+    const bodiesNearby = Matter.Query.point(Matter.Composite.allBodies(world), centerScreen);
+    const machine = bodiesNearby.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
+        
+    if (machine) {
+        machine.customProps.isActive = !machine.customProps.isActive;
+        showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
+    }
+});
 
 function switchCategoryAndToggleSidebar(contentCategoryId, topBarIconId) {
     const leftSidebar = document.getElementById('left-sidebar');
@@ -567,6 +585,7 @@ function keyPressed() {
         if (cameraFollowTarget) cameraFollowTarget = null;
         else if (mouseSpring && mouseSpring.bodyA) cameraFollowTarget = mouseSpring.bodyA;
     } 
+
     // --- NOVO: Tecla 'B' para detonar C4 ---
     else if (key === 'b' || key === 'B') {
         c4s.forEach(c4 => {
@@ -576,6 +595,18 @@ function keyPressed() {
             }
         });
         c4s = []; 
+    }
+}
+// --- NOVO: Tecla de ativação manual 'F' ---
+    else if (key === 'f' || key === 'F') {
+        const worldMouse = screenToWorld(mouseX, mouseY);
+        const bodiesUnderMouse = Matter.Query.point(Matter.Composite.allBodies(world), worldMouse);
+        const machine = bodiesUnderMouse.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
+        
+        if (machine) {
+            machine.customProps.isActive = !machine.customProps.isActive; // Inverte o estado
+            showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
+        }
     }
 }
 
@@ -1877,10 +1908,11 @@ function updateActivators() {
 function updateThrusters() {
     propulsores.forEach(p => {
         if (!p.customProps) return;
-        // O propulsor ativa se estiver recebendo energia de um cabo ou ativador
-        p.customProps.isActive = p.customProps.isPowered;
         
-        if (p.customProps.isActive) {
+        // Ativa se estiver ligado na energia OU se foi ativado manualmente
+        const shouldBeActive = p.customProps.isPowered || p.customProps.isActive;
+        
+        if (shouldBeActive) {
             const forceVector = { x: 0, y: -p.customProps.force };
             const rotatedForce = Matter.Vector.rotate(forceVector, p.angle);
             Matter.Body.applyForce(p, p.position, rotatedForce);
@@ -1898,10 +1930,11 @@ function updatePistons() {
         const base = pistonComp.bodies.find(b => b.label === 'pistao_base');
         if (!base || !base.customProps) return;
 
-        base.customProps.isActive = base.customProps.isPowered;
+        // Ativa se estiver ligado na energia OU se foi ativado manualmente
+        const shouldBeActive = base.customProps.isPowered || base.customProps.isActive;
         const prismatic = pistonComp.constraints.find(c => c.stiffness === 0.01);
         
-        if (base.customProps.isActive) {
+        if (shouldBeActive) {
             prismatic.length = lerp(prismatic.length, 20, 0.1); // Retrai
         } else {
             prismatic.length = lerp(prismatic.length, 120, 0.1); // Estende
@@ -1987,4 +2020,20 @@ function showNotification(message, duration = 3000) {
         // Remove o elemento do DOM após a animação de saída
         toast.addEventListener('transitionend', () => toast.remove());
     }, duration);
+}
+
+// Adicione esta função ao seu script.js
+function detonateAllC4s() {
+    if (c4s.length === 0) {
+        showNotification("Nenhuma C4 foi plantada.");
+        return;
+    }
+    showNotification(`Detonando ${c4s.length} C4(s)!`);
+    c4s.forEach(c4 => {
+        if (Matter.Composite.get(world, c4.id, 'body')) { 
+            createExplosion(c4.position, 180, 0.6);
+            Matter.World.remove(world, c4);
+        }
+    });
+    c4s = []; 
 }
