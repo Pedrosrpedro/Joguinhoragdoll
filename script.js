@@ -438,8 +438,22 @@ function setup() {
 
     const gameContainer = document.getElementById('game-container');
     const canvas = createCanvas(1, 1);
-    canvas.parent('game-container');
+    canvas.parent('game-container'); // O canvas é adicionado aqui
     colorMode(HSB, 360, 100, 100);
+
+    // --- NOVA SOLUÇÃO PARA O BUG DA UI ---
+    // Reposiciona os elementos da UI para garantir que fiquem "em cima" do canvas
+    const uiElements = [
+        document.getElementById('top-bar'),
+        document.getElementById('left-sidebar'),
+        document.getElementById('bottom-bar'),
+        document.getElementById('mobile-controls'),
+        document.getElementById('floating-tool-panel')
+    ];
+    uiElements.forEach(el => {
+        if (el) gameContainer.appendChild(el);
+    });
+    // --- FIM DA SOLUÇÃO ---
     
     engine = Matter.Engine.create(); 
     world = engine.world;
@@ -448,6 +462,7 @@ function setup() {
     Matter.Runner.run(runner, engine);
     Matter.Events.on(engine, 'collisionStart', handleCollisions);
 
+    // O resto da sua função setup continua aqui, sem alterações...
     document.getElementById('main-menu-play').addEventListener('click', showMapSelection);
     document.querySelectorAll('.map-preview-btn').forEach(btn => {
         btn.addEventListener('click', () => iniciarJogoComMapa(btn.dataset.map));
