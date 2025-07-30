@@ -2157,7 +2157,7 @@ function detonateAllC4s() {
 }
 ```
 ---
-### `style (4).css`
+### `style.css`
 ```css
 /* Base styles for the entire page */
 body { 
