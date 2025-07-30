@@ -5,20 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ragdoll Sandbox</title>
     
-    <!-- Link para a fonte do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Link para o seu arquivo de estilos CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Wrapper para manter a proporção e centralizar o jogo -->
     <div id="aspect-ratio-wrapper">
-        <!-- Este container segura todas as telas -->
         <div id="root-container">
 
-            <!-- Menu Principal -->
+            <!-- Telas de Menu e Mapas -->
             <div id="main-menu">
                 <div class="main-menu-list">
                     <button id="main-menu-play">jogar</button>
@@ -32,85 +27,41 @@
                 </div>
             </div>
 
-            <!-- Tela de Seleção de Mapa -->
             <div id="map-selection-screen">
                 <h2>Selecione um Mapa</h2>
                 <div class="map-grid-container">
-                    <button class="map-preview-btn" data-map="padrao">
-                        <div class="map-preview-visual"></div>
-                        <span class="map-name">Padrão</span>
-                    </button>
-                    <button class="map-preview-btn" data-map="pequeno">
-                        <div class="map-preview-visual"></div>
-                        <span class="map-name">Pequeno</span>
-                    </button>
-                     <button class="map-preview-btn" data-map="grande">
-                        <div class="map-preview-visual"></div>
-                        <span class="map-name">Grande</span>
-                    </button>
-                    <button class="map-preview-btn" data-map="montanhas">
-                        <div id="montanhas-visual" class="map-preview-visual">
-                            <div class="mountain m1"></div>
-                            <div class="mountain m2"></div>
-                            <div class="mountain m3"></div>
-                        </div>
-                        <span class="map-name">Montanhas</span>
-                    </button>
-                    <button class="map-preview-btn" data-map="agua">
-                        <div id="agua-visual" class="map-preview-visual">
-                            <div class="ground"></div>
-                            <div class="water"></div>
-                        </div>
-                        <span class="map-name">Água</span>
-                    </button>
-                     <button class="map-preview-btn" data-map="predio">
-                        <div id="predio-visual" class="map-preview-visual">
-                            <div class="building-wall bw1"></div>
-                            <div class="building-wall bw2"></div>
-                            <div class="building-wall bw3"></div>
-                        </div>
-                        <span class="map-name">Prédio</span>
-                    </button>
-                    <button class="map-preview-btn" data-map="abismo">
-                        <div id="abismo-visual" class="map-preview-visual">
-                            <div class="platform p1"></div>
-                             <div class="platform p2"></div>
-                        </div>
-                        <span class="map-name">Abismo</span>
-                    </button>
+                    <button class="map-preview-btn" data-map="padrao"><div class="map-preview-visual"></div><span class="map-name">Padrão</span></button>
+                    <button class="map-preview-btn" data-map="pequeno"><div class="map-preview-visual"></div><span class="map-name">Pequeno</span></button>
+                    <button class="map-preview-btn" data-map="grande"><div class="map-preview-visual"></div><span class="map-name">Grande</span></button>
+                    <button class="map-preview-btn" data-map="montanhas"><div id="montanhas-visual" class="map-preview-visual"><div class="mountain m1"></div><div class="mountain m2"></div><div class="mountain m3"></div></div><span class="map-name">Montanhas</span></button>
+                    <button class="map-preview-btn" data-map="agua"><div id="agua-visual" class="map-preview-visual"><div class="ground"></div><div class="water"></div></div><span class="map-name">Água</span></button>
+                    <button class="map-preview-btn" data-map="predio"><div id="predio-visual" class="map-preview-visual"><div class="building-wall bw1"></div><div class="building-wall bw2"></div><div class="building-wall bw3"></div></div><span class="map-name">Prédio</span></button>
+                    <button class="map-preview-btn" data-map="abismo"><div id="abismo-visual" class="map-preview-visual"><div class="platform p1"></div><div class="platform p2"></div></div><span class="map-name">Abismo</span></button>
                 </div>
             </div>
 
-            <!-- Container do Jogo -->
+            <!-- Container Principal do Jogo -->
             <div id="game-container">
-                <!-- O Canvas do p5.js será inserido aqui -->
                 <div id="top-bar">
-                    <button id="icon-favorites" title="Favoritos">♥</button>
                     <button id="icon-items-basic" class="active-category-icon" title="Itens Básicos">📦</button>
-                    <button id="icon-firearms" title="Armas de Fogo">🔫</button>
+                    <button id="icon-melee" title="Armas Brancas">⚔️</button>
+                    <button id="icon-explosives" title="Explosivos">💣</button>
                     <button id="icon-people" title="Seres Vivos">🧍</button>
                     <button id="icon-vehicles" title="Veículos">🚗</button>
                     <button id="icon-syringes" title="Seringas">💉</button>
-                    <button id="icon-machines" title="Máquinas">🔩</button>
-                    <button id="icon-tools-category" title="Ferramentas">⚙️</button>
-                    <button id="icon-info" title="Informações">?</button>
-                    <button id="icon-save" title="Salvar">💾</button>
-                    <button id="icon-plus" title="Criar Item">+</button>
+                    <button id="icon-mechanisms" title="Mecanismos">⚙️</button>
+                    <button id="icon-tools" title="Ferramentas">🔧</button>
+                    <button id="icon-save" title="Salvar Seleção">💾</button>
+                    <button id="icon-load" title="Carregar Criação">📂</button>
                 </div>
 
                 <div id="left-sidebar">
                     <div class="filter-bar">
-                        <input type="text" placeholder="filtrar">
+                        <input type="text" id="filter-input" placeholder="filtrar">
                         <button class="clear-filter">✖</button>
                     </div>
                     <div id="item-grid-wrapper">
-                        <!-- Categorias de Itens -->
-                        <div id="category-favorites-content" class="item-category">
-                            <div class="category-label">Favoritos</div>
-                            <p style="font-size: 12px; color: #888; text-align: center;">Não implementado.</p>
-                            <div class="item-grid"></div>
-                        </div>
-
+                        <!-- Itens Básicos -->
                         <div id="category-items-basic" class="item-category active">
                             <div class="category-label">Itens</div>
                             <div class="item-grid">
@@ -119,37 +70,44 @@
                                 <button class="item-btn" data-tipo="bola">🏀</button>
                                 <button class="item-btn" data-tipo="barril">🛢️</button>
                                 <button class="item-btn" data-tipo="parede">🧱</button>
-                                <button class="item-btn" data-tipo="lamina">🔪</button>
                                 <button class="item-btn" data-tipo="triangulo">🔺</button>
                                 <button class="item-btn" data-tipo="cano">➖</button>
-                                <button class="item-btn" data-tipo="cadeira">🪑</button> 
-                                <button class="item-btn" data-tipo="mesa">🪑</button> 
                             </div>
                         </div>
-
-                        <div id="category-firearms-content" class="item-category">
-                            <div class="category-label">Armas de Fogo</div>
+                        <!-- Armas Brancas -->
+                        <div id="category-melee" class="item-category">
+                            <div class="category-label">Armas Brancas</div>
                             <div class="item-grid">
-                                <button class="item-btn" data-tipo="pistola">🔫</button>
+                                <button class="item-btn" data-tipo="lamina">🔪</button>
+                                <button class="item-btn" data-tipo="espada">⚔️</button>
+                                <button class="item-btn" data-tipo="marreta">🔨</button>
                             </div>
                         </div>
-
-                        <div id="category-people-content" class="item-category">
+                         <!-- Explosivos -->
+                        <div id="category-explosives" class="item-category">
+                            <div class="category-label">Explosivos</div>
+                            <div class="item-grid">
+                                <button class="item-btn" data-tipo="granada">💣</button>
+                                <button class="item-btn" data-tipo="c4">🧨</button>
+                            </div>
+                        </div>
+                        <!-- Seres Vivos -->
+                        <div id="category-people" class="item-category">
                             <div class="category-label">Seres Vivos</div>
                             <div class="item-grid">
                                 <button class="item-btn" data-tipo="boneco">🧍</button>
                             </div>
                         </div>
-
-                        <div id="category-vehicles-content" class="item-category">
+                        <!-- Veículos -->
+                        <div id="category-vehicles" class="item-category">
                             <div class="category-label">Veículos</div>
                             <div class="item-grid">
                                 <button class="item-btn" data-tipo="carro">🚗</button>
                                 <button class="item-btn" data-tipo="onibus">🚌</button>
                             </div>
                         </div>
-                        
-                        <div id="category-syringes-content" class="item-category">
+                        <!-- Seringas -->
+                        <div id="category-syringes" class="item-category">
                             <div class="category-label">Seringas</div>
                             <div class="item-grid">
                                 <button class="item-btn" data-tipo="seringa_vazia" title="Seringa Vazia">💉</button>
@@ -159,27 +117,34 @@
                                 <button class="item-btn" data-tipo="seringa_cura" title="Seringa de Cura Vital">❤️</button>
                                 <button class="item-btn" data-tipo="seringa_zumbi" title="Seringa de Zumbi">🧟</button>
                                 <button class="item-btn" data-tipo="seringa_imortalidade" title="Seringa de Imortalidade">✨</button>
-                                <button class="item-btn" data-tipo="seringa_fogo" title="Seringa de Gorse (Fogo)">🔥</button>
+                                <button class="item-btn" data-tipo="seringa_fogo" title="Seringa de Fogo">🔥</button>
                                 <button class="item-btn" data-tipo="seringa_nitro" title="Seringa de Nitroglicerina">💥</button>
+                                <button class="item-btn" data-tipo="seringa_antigravidade" title="Seringa Anti-Gravidade">🎈</button>
+                                <button class="item-btn" data-tipo="seringa_petrificacao" title="Seringa de Petrificação">🗿</button>
+                                <button class="item-btn" data-tipo="seringa_crescimento" title="Seringa de Crescimento">🔼</button>
+                                <button class="item-btn" data-tipo="seringa_encolhimento" title="Seringa de Encolhimento">🔽</button>
                             </div>
                         </div>
-
-                        <div id="category-machines-content" class="item-category">
-                            <div class="category-label">Máquinas</div>
+                        <!-- Mecanismos -->
+                        <div id="category-mechanisms" class="item-category">
+                            <div class="category-label">Mecanismos</div>
                             <div class="item-grid">
-                                <button class="item-btn" data-tipo="liquid_container" title="Contêiner de Líquido">🛢️</button>
                                 <button class="item-btn" data-tipo="gerador" title="Gerador">🔋</button>
+                                <button class="item-btn" data-tipo="botao" title="Botão">🔘</button>
+                                <button class="item-btn" data-tipo="propulsor" title="Propulsor">🚀</button>
+                                <button class="item-btn" data-tipo="pistao" title="Pistão">🔩</button>
                             </div>
                         </div>
-
-                        <div id="category-tools-content" class="item-category">
+                        <!-- Ferramentas -->
+                        <div id="category-tools" class="item-category">
                             <div class="category-label">Ferramentas</div>
-                            <div class="item-grid">
+                            <div class="item-grid full-width">
                                 <button id="slowMoButton" class="tool-btn">CÂMERA LENTA</button> 
                                 <button id="freezeToggleButton" class="tool-btn">CONGELAR</button>
                                 <button class="tool-btn" data-tipo="corda">Corda ⛓️</button> 
                                 <button class="tool-btn" data-tipo="cabo_eletrico">Cabo ⚡</button>
-                                <button class="tool-btn" data-tipo="tubo_liquido">Tubo 💧</button>
+                                <button class="tool-btn" data-tipo="mola">Mola 〰️</button>
+                                <button class="tool-btn" data-tipo="prego">Prego/Solda ➕</button>
                             </div>
                         </div>
                     </div>
@@ -189,55 +154,24 @@
                     <button id="settings-button">Configurações</button>
                     <button id="environment-button">Ambiente</button>
                     <button id="btnClearAll">Limpar Tudo</button>
-                    <button id="btnClearDebris">Limpar Detritos</button>
-                    <button id="btnClearLiving">Limpar Seres Vivos</button>
-                    <button id="btnClearRopes">Limpar Cabos</button> 
                 </div>
                 
                 <div id="mobile-controls">
-                    <div class="control-group">
-                        <button id="btnVehicleLeft" title="Mover Veículo para Esquerda">⬅️</button>
-                        <button id="btnVehicleRight" title="Mover Veículo para Direita">➡️</button>
-                    </div>
-                    <div class="control-group">
-                        <button id="btnSlowMo" title="Câmera Lenta">🕒</button>
-                        <button id="btnZoomOut" title="Zoom Out">-</button>
-                        <button id="btnZoomIn" title="Zoom In">+</button>
-                    </div>
-                    <div class="control-group">
-                        <button id="btnShoot" title="Atirar">💥</button>
-                        <button id="btnGrabDrop" title="Pegar/Largar">✋</button>
-                        <button id="btnFreeze" title="Congelar">❄️</button>
-                        <button id="btnDonor" title="Modo Doador/Receptor">H</button>
-                    </div>
+                    <!-- Controles Mobile -->
                 </div>
 
-                <div id="floating-tool-panel">
-                    Clique para iniciar a corda
-                </div>
+                <div id="floating-tool-panel"></div>
             </div>
 
-            <!-- Modais do Jogo -->
+            <!-- Modais -->
             <div id="settings-modal" class="game-modal">
                 <div class="modal-content">
                     <h2>Configurações</h2>
                     <div class="settings-grid">
-                        <label>
-                            <span>Exibir Grade</span>
-                            <input type="checkbox" id="toggle-grid-cb" checked>
-                        </label>
-                        <label>
-                            <span>Exibir Sangue</span>
-                            <input type="checkbox" id="toggle-blood-cb" checked>
-                        </label>
-                        <label>
-                            <span>Controles Mobile</span>
-                            <input type="checkbox" id="toggleMobileControls">
-                        </label>
-                        <label>
-                            <span>Tela Cheia</span>
-                            <input type="checkbox" id="toggle-fullscreen-cb">
-                        </label>
+                        <label><span>Exibir Grade</span><input type="checkbox" id="toggle-grid-cb" checked></label>
+                        <label><span>Exibir Sangue</span><input type="checkbox" id="toggle-blood-cb" checked></label>
+                        <label><span>Controles Mobile</span><input type="checkbox" id="toggleMobileControls"></label>
+                        <label><span>Tela Cheia</span><input type="checkbox" id="toggle-fullscreen-cb"></label>
                     </div>
                     <button class="close-modal-btn">Fechar</button>
                 </div>
@@ -246,7 +180,7 @@
             <div id="mods-modal" class="game-modal">
                 <div class="modal-content">
                     <h2>Mods</h2>
-                    <p>A oficina de mods não está implementada nesta versão.</p>
+                    <p>A oficina de mods não está implementada.</p>
                     <button class="close-modal-btn">Fechar</button>
                 </div>
             </div>
@@ -260,20 +194,17 @@
             </div>
 
             <div id="info-modal" class="game-modal">
-                <div class="modal-content">
-                    <h2>Informações</h2>
+                 <div class="modal-content">
+                    <h2>Informações e Controles</h2>
                     <ul>
-                        <li>Mouse: Arrastar objetos (com a ferramenta Mão selecionada).</li>
-                        <li>Arrastar o fundo com a Mão para mover a câmera.</li>
-                        <li>Seringas: Crie e arremesse nos bonecos para fincar e injetar.</li>
-                        <li>Cabos/Tubos: Clique em um objeto para iniciar e em outro para conectar.</li>
-                        <li>Teclas [ e ] para controlar o zoom.</li>
-                        <li>O: Segure um objeto com o mouse e aperte 'O' para a câmera segui-lo.</li>
-                        <li>I: Segure uma seringa com o mouse e aperte 'I' para ver seu conteúdo.</li>
-                        <li>H: Segure um objeto e aperte 'H' para alternar o modo "Doador/Receptor" de líquidos.</li>
-                        <li>R: Atirar com a pistola.</li>
-                        <li>P: Alternar Câmera Lenta.</li>
-                        <li>K: Congelar/Descongelar objeto sendo arrastado.</li>
+                        <li><b>SHIFT + Arrastar:</b> Criar caixa de seleção.</li>
+                        <li><b>B:</b> Detonar todos os C4s plantados.</li>
+                        <li><b>R:</b> Atirar com arma / Ativar item selecionado.</li>
+                        <li><b>P:</b> Alternar Câmera Lenta.</li>
+                        <li><b>K:</b> Congelar/Descongelar objeto arrastado.</li>
+                        <li><b>O:</b> Focar câmera no objeto arrastado.</li>
+                        <li><b>[ e ]:</b> Controlar o zoom da câmera.</li>
+                        <li><b>H:</b> Alternar modo Doador/Receptor em itens de líquido.</li>
                     </ul>
                     <button class="close-modal-btn">Fechar</button>
                 </div>
@@ -281,28 +212,27 @@
 
             <div id="save-modal" class="game-modal">
                 <div class="modal-content">
-                    <h2>Salvar Jogo</h2>
-                    <p>Funcionalidade de salvar não implementada.</p>
+                    <h2>Salvar Criação</h2>
+                    <input type="text" id="save-name-input" placeholder="Nome da sua criação...">
+                    <button id="save-contraption-btn">Salvar</button>
+                    <button class="close-modal-btn">Cancelar</button>
+                </div>
+            </div>
+
+             <div id="load-modal" class="game-modal">
+                <div class="modal-content">
+                    <h2>Carregar Criação</h2>
+                    <div id="load-list"></div>
                     <button class="close-modal-btn">Fechar</button>
                 </div>
             </div>
 
-            <div id="plus-modal" class="game-modal">
-                <div class="modal-content">
-                    <h2>Criar Item</h2>
-                    <p>Use o menu lateral esquerdo para criar itens.</p>
-                    <button class="close-modal-btn">Fechar</button>
-                </div>
-            </div>
         </div>
     </div>
     
-    <!-- Scripts de Bibliotecas Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/poly-decomp/0.3.0/poly-decomp.min.js"></script>
-
-    <!-- Link para o seu arquivo JavaScript -->
     <script src="script.js"></script>
 </body>
 </html>
