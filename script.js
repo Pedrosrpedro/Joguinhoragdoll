@@ -1046,7 +1046,10 @@ function stickSyringe(seringa, corpoAlvo, ponto) {
     const juntaSeringa = Matter.Constraint.create({
         bodyA: seringa, bodyB: corpoAlvo,
         pointA: Matter.Vector.sub(ponto, seringa.position), pointB: Matter.Vector.sub(ponto, corpoAlvo.position),
-        stiffness: 0.8, length: 0, label: 'seringa_presa'
+        stiffness: 0.2, // Reduzimos a rigidez de 0.8 para 0.2
+        damping: 0.1,   // Adicionamos um amortecimento para estabilizar
+        length: 0, 
+        label: 'seringa_presa'
     });
     Matter.World.add(world, juntaSeringa);
 
