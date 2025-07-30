@@ -92,6 +92,7 @@
                     <button id="icon-vehicles" title="Veículos">🚗</button>
                     <button id="icon-syringes" title="Seringas">💉</button>
                     <button id="icon-machines" title="Máquinas">🔩</button>
+                    <button id="icon-explosives" title="Explosivos">💣</button>
                     <button id="icon-tools-category" title="Ferramentas">⚙️</button>
                     <button id="icon-info" title="Informações">?</button>
                     <button id="icon-save" title="Salvar">💾</button>
@@ -104,86 +105,95 @@
                         <button class="clear-filter">✖</button>
                     </div>
                     <div id="item-grid-wrapper">
-                        <!-- Categorias de Itens -->
-                        <div id="category-favorites-content" class="item-category">
-                            <div class="category-label">Favoritos</div>
-                            <p style="font-size: 12px; color: #888; text-align: center;">Não implementado.</p>
-                            <div class="item-grid"></div>
-                        </div>
+    <!-- Categorias de Itens -->
+    <div id="category-favorites-content" class="item-category">
+        <div class="category-label">Favoritos</div>
+        <p style="font-size: 12px; color: #888; text-align: center;">Não implementado.</p>
+        <div class="item-grid"></div>
+    </div>
 
-                        <div id="category-items-basic" class="item-category active">
-                            <div class="category-label">Itens</div>
-                            <div class="item-grid">
-                                <button class="item-btn active-create-type" data-tipo="mao">🖐️</button>
-                                <button class="item-btn" data-tipo="caixa">📦</button>
-                                <button class="item-btn" data-tipo="bola">🏀</button>
-                                <button class="item-btn" data-tipo="barril">🛢️</button>
-                                <button class="item-btn" data-tipo="parede">🧱</button>
-                                <button class="item-btn" data-tipo="lamina">🔪</button>
-                                <button class="item-btn" data-tipo="triangulo">🔺</button>
-                                <button class="item-btn" data-tipo="cano">➖</button>
-                                <button class="item-btn" data-tipo="cadeira">🪑</button> 
-                                <button class="item-btn" data-tipo="mesa">🪑</button> 
-                            </div>
-                        </div>
+    <div id="category-items-basic" class="item-category active">
+        <div class="category-label">Itens</div>
+        <div class="item-grid">
+            <button class="item-btn active-create-type" data-tipo="mao">🖐️</button>
+            <button class="item-btn" data-tipo="caixa">📦</button>
+            <button class="item-btn" data-tipo="bola">🏀</button>
+            <button class="item-btn" data-tipo="barril">🛢️</button>
+            <button class="item-btn" data-tipo="parede">🧱</button>
+            <button class="item-btn" data-tipo="triangulo">🔺</button>
+            <button class="item-btn" data-tipo="cano">➖</button>
+        </div>
+    </div>
 
-                        <div id="category-firearms-content" class="item-category">
-                            <div class="category-label">Armas de Fogo</div>
-                            <div class="item-grid">
-                                <button class="item-btn" data-tipo="pistola">🔫</button>
-                            </div>
-                        </div>
+    <div id="category-firearms-content" class="item-category">
+        <div class="category-label">Armas</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="pistola">🔫</button>
+            <button class="item-btn" data-tipo="lamina">🔪</button>
+            <button class="item-btn" data-tipo="marreta">🔨</button>
+        </div>
+    </div>
 
-                        <div id="category-people-content" class="item-category">
-                            <div class="category-label">Seres Vivos</div>
-                            <div class="item-grid">
-                                <button class="item-btn" data-tipo="boneco">🧍</button>
-                            </div>
-                        </div>
+    <!-- NOVA CATEGORIA -->
+    <div id="category-explosives-content" class="item-category">
+        <div class="category-label">Explosivos</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="granada">💣</button>
+            <button class="item-btn" data-tipo="c4">🧱</button>
+            <button class="item-btn" data-tipo="detonador">📡</button>
+        </div>
+    </div>
 
-                        <div id="category-vehicles-content" class="item-category">
-                            <div class="category-label">Veículos</div>
-                            <div class="item-grid">
-                                <button class="item-btn" data-tipo="carro">🚗</button>
-                                <button class="item-btn" data-tipo="onibus">🚌</button>
-                            </div>
-                        </div>
-                        
-                        <div id="category-syringes-content" class="item-category">
-                            <div class="category-label">Seringas</div>
-                            <div class="item-grid">
-                                <button class="item-btn" data-tipo="seringa_vazia" title="Seringa Vazia">💉</button>
-                                <button class="item-btn" data-tipo="seringa_sangue" title="Seringa de Sangue">🩸</button>
-                                <button class="item-btn" data-tipo="seringa_acido" title="Seringa de Ácido">🧪</button>
-                                <button class="item-btn" data-tipo="seringa_adrenalina" title="Seringa de Adrenalina">⚡</button>
-                                <button class="item-btn" data-tipo="seringa_cura" title="Seringa de Cura Vital">❤️</button>
-                                <button class="item-btn" data-tipo="seringa_zumbi" title="Seringa de Zumbi">🧟</button>
-                                <button class="item-btn" data-tipo="seringa_imortalidade" title="Seringa de Imortalidade">✨</button>
-                                <button class="item-btn" data-tipo="seringa_fogo" title="Seringa de Gorse (Fogo)">🔥</button>
-                                <button class="item-btn" data-tipo="seringa_nitro" title="Seringa de Nitroglicerina">💥</button>
-                            </div>
-                        </div>
+    <div id="category-people-content" class="item-category">
+        <div class="category-label">Seres Vivos</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="boneco">🧍</button>
+        </div>
+    </div>
 
-                        <div id="category-machines-content" class="item-category">
-                            <div class="category-label">Máquinas</div>
-                            <div class="item-grid">
-                                <button class="item-btn" data-tipo="liquid_container" title="Contêiner de Líquido">🛢️</button>
-                                <button class="item-btn" data-tipo="gerador" title="Gerador">🔋</button>
-                            </div>
-                        </div>
+    <div id="category-vehicles-content" class="item-category">
+        <div class="category-label">Veículos</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="carro">🚗</button>
+            <button class="item-btn" data-tipo="onibus">🚌</button>
+        </div>
+    </div>
+    
+    <div id="category-syringes-content" class="item-category">
+        <div class="category-label">Seringas</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="seringa_vazia" title="Seringa Vazia">💉</button>
+            <button class="item-btn" data-tipo="seringa_sangue" title="Seringa de Sangue">🩸</button>
+            <!-- Adicionaremos as novas seringas aqui depois -->
+        </div>
+    </div>
 
-                        <div id="category-tools-content" class="item-category">
-                            <div class="category-label">Ferramentas</div>
-                            <div class="item-grid">
-                                <button id="slowMoButton" class="tool-btn">CÂMERA LENTA</button> 
-                                <button id="freezeToggleButton" class="tool-btn">CONGELAR</button>
-                                <button class="tool-btn" data-tipo="corda">Corda ⛓️</button> 
-                                <button class="tool-btn" data-tipo="cabo_eletrico">Cabo ⚡</button>
-                                <button class="tool-btn" data-tipo="tubo_liquido">Tubo 💧</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <div id="category-machines-content" class="item-category">
+        <div class="category-label">Máquinas e Eletrônicos</div>
+        <div class="item-grid">
+            <button class="item-btn" data-tipo="gerador" title="Gerador">🔋</button>
+            <button class="item-btn" data-tipo="propulsor" title="Propulsor">🚀</button>
+            <button class="item-btn" data-tipo="pistao" title="Pistão">🔩</button>
+            <button class="item-btn" data-tipo="botao" title="Botão">🔘</button>
+            <button class="item-btn" data-tipo="alavanca" title="Alavanca">🕹️</button>
+            <button class="item-btn" data-tipo="liquid_container" title="Contêiner de Líquido">🛢️</button>
+        </div>
+    </div>
+
+    <div id="category-tools-content" class="item-category">
+        <div class="category-label">Ferramentas e Conectores</div>
+        <div class="item-grid">
+            <button class="tool-btn" data-tipo="corda">Corda ⛓️</button> 
+            <button class="tool-btn" data-tipo="mola">Mola 〰️</button> 
+            <button class="tool-btn" data-tipo="prego">Prego/Solda 📌</button> 
+            <button class="tool-btn" data-tipo="cabo_eletrico">Cabo Elétrico ⚡</button>
+            <button class="tool-btn" data-tipo="tubo_liquido">Tubo de Líquido 💧</button>
+            <br>
+            <button id="slowMoButton" class="tool-btn">CÂMERA LENTA</button> 
+            <button id="freezeToggleButton" class="tool-btn">CONGELAR</button>
+        </div>
+    </div>
+</div>
 
                 <div id="bottom-bar">
                     <button id="settings-button">Configurações</button>
