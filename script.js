@@ -367,25 +367,27 @@ function setupControles() {
     document.getElementById('btnGrabDrop').addEventListener('click', (e) => { e.preventDefault(); mobileGrabDrop(); });
     document.getElementById('btnFreeze').addEventListener('click', (e) => { e.preventDefault(); mobileFreeze(); });
     document.getElementById('btnDonor').addEventListener('click', (e) => { e.preventDefault(); mobileToggleDonor(); });
-}
-// Adicione no final da função setupControles()
-document.getElementById('btnMobileDetonate').addEventListener('click', (e) => {
-    e.preventDefault();
-    detonateAllC4s();
-});
+    
+    // Adicione no final da função setupControles()
+    document.getElementById('btnMobileDetonate').addEventListener('click', (e) => {
+        e.preventDefault();
+        detonateAllC4s();
+    });
 
-document.getElementById('btnMobileActivate').addEventListener('click', (e) => {
-    e.preventDefault();
-    // Lógica similar à tecla F, mas no centro da tela
-    const centerScreen = screenToWorld(width/2, height/2);
-    const bodiesNearby = Matter.Query.point(Matter.Composite.allBodies(world), centerScreen);
-    const machine = bodiesNearby.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
-        
-    if (machine) {
-        machine.customProps.isActive = !machine.customProps.isActive;
-        showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
-    }
-});
+    document.getElementById('btnMobileActivate').addEventListener('click', (e) => {
+        e.preventDefault();
+        // Lógica similar à tecla F, mas no centro da tela
+        const centerScreen = screenToWorld(width/2, height/2);
+        const bodiesNearby = Matter.Query.point(Matter.Composite.allBodies(world), centerScreen);
+        const machine = bodiesNearby.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
+            
+        if (machine) {
+            machine.customProps.isActive = !machine.customProps.isActive;
+            showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
+        }
+    });
+}
+
 
 function switchCategoryAndToggleSidebar(contentCategoryId, topBarIconId) {
     const leftSidebar = document.getElementById('left-sidebar');
@@ -553,7 +555,7 @@ function windowResized() {
 
 function keyPressed() {
     if (gameState !== 'GAME') return;
-    
+
     if (key === 'h' || key === 'H') {
         if (mouseSpring && mouseSpring.bodyA && mouseSpring.bodyA.customProps) {
             const props = mouseSpring.bodyA.customProps;
@@ -564,18 +566,16 @@ function keyPressed() {
                 props.mode = (props.mode === 'donor' ? 'receiver' : 'donor');
             }
         }
-    }
-    
-    if (key === 'i' || key === 'I') {
-        if(mouseSpring && mouseSpring.bodyA.label.startsWith('seringa_')) {
+    } else if (key === 'i' || key === 'I') {
+        if (mouseSpring && mouseSpring.bodyA.label.startsWith('seringa_')) {
             showSyringeInfo = true;
             heldSyringeForInfo = mouseSpring.bodyA;
         }
     } else if (key === 'r' || key === 'R') {
         if (activePistol) fireFromPistol(activePistol);
-    } else if (key === 'p' || key === 'P') { 
+    } else if (key === 'p' || key === 'P') {
         toggleSlowMotion();
-    } else if (key === 'k' || key === 'K') { 
+    } else if (key === 'k' || key === 'K') {
         toggleFreeze();
     } else if (key === '[') {
         zoomCamera(0.9);
@@ -584,31 +584,24 @@ function keyPressed() {
     } else if (key === 'o' || key === 'O') {
         if (cameraFollowTarget) cameraFollowTarget = null;
         else if (mouseSpring && mouseSpring.bodyA) cameraFollowTarget = mouseSpring.bodyA;
-    } 
-
+    }
     // --- NOVO: Tecla 'B' para detonar C4 ---
     else if (key === 'b' || key === 'B') {
-        c4s.forEach(c4 => {
-            if (Matter.Composite.get(world, c4.id, 'body')) { 
-                createExplosion(c4.position, 180, 0.6);
-                Matter.World.remove(world, c4);
-            }
-        });
-        c4s = []; 
+        detonateAllC4s();
     }
-}
-// --- NOVO: Tecla de ativação manual 'F' ---
+    // --- NOVO: Tecla de ativação manual 'F' ---
     else if (key === 'f' || key === 'F') {
         const worldMouse = screenToWorld(mouseX, mouseY);
         const bodiesUnderMouse = Matter.Query.point(Matter.Composite.allBodies(world), worldMouse);
         const machine = bodiesUnderMouse.find(b => b.label === 'propulsor' || b.label === 'pistao_base');
-        
+
         if (machine) {
             machine.customProps.isActive = !machine.customProps.isActive; // Inverte o estado
             showNotification(`Máquina ${machine.customProps.isActive ? 'ativada' : 'desativada'}.`);
         }
     }
 }
+
 
 function keyReleased() {
      if (key === 'i' || key === 'I') {
@@ -1345,8 +1338,8 @@ function criarObjeto(tipo, x, y) {
                 c4s.push(novoObjeto);
                 break;
             case 'detonador':
-    showNotification("Detonador equipado! Pressione 'B' para explodir.", 4000);
-    return;
+                showNotification("Detonador equipado! Pressione 'B' para explodir.", 4000);
+                return;
             // --- NOVO: Máquinas e Eletrônicos ---
             case 'propulsor':
                 novoObjeto = Matter.Bodies.rectangle(x, y, 20, 50, { ...options, density: 0.008, label: 'propulsor', customProps: { ...options.customProps, cor: color(0, 0, 60), isPowered: false, isActive: false, force: 0.002 }});
@@ -1656,6 +1649,23 @@ function drawBodies(bodies) {
         if (body.circleRadius) circle(0,0, body.circleRadius * 2);
         else { beginShape(); for (let vert of body.vertices) vertex(vert.x - body.position.x, vert.y - body.position.y); endShape(CLOSE); }
         
+        // --- NOVO: Lógica dos indicadores de energia e ativação ---
+        if (body.label === 'propulsor' || body.label === 'pistao_base') {
+            const props = body.customProps;
+            const indicatorRadius = 3.5 / camera.zoom;
+            let width = body.bounds.max.x - body.bounds.min.x;
+            
+            // Ponto da Esquerda (Energia)
+            fill(props.isPowered ? color(120, 90, 80) : color(0, 80, 70)); // Verde ou Vermelho
+            noStroke();
+            circle(-width/4, 0, indicatorRadius * 2);
+
+            // Ponto da Direita (Ativado)
+            fill(props.isActive ? color(120, 90, 80) : color(0, 80, 70)); // Verde ou Vermelho
+            noStroke();
+            circle(width/4, 0, indicatorRadius * 2);
+        }
+        
         noStroke();
         
         if (!(ragdoll && ragdoll.estado === 'SKELETON')) { 
@@ -1880,13 +1890,17 @@ function updateElectricitySystem() {
         cabosEletricos.forEach(cabo => {
             const bodyA = cabo.constraints[0].bodyA;
             const bodyB = cabo.constraints[cabo.constraints.length - 1].bodyB;
-            if (!bodyA || !bodyB || !bodyA.customProps || !bodyB.customProps) return;
+            if (!bodyA || !bodyB ) return;
 
-            const aIsPowered = bodyA.label === 'gerador' || (bodyA.customProps && bodyA.customProps.isPowered);
-            const bIsPowered = bodyB.label === 'gerador' || (bodyB.customProps && bodyB.customProps.isPowered);
+            // Handle cases where one body might not be an electrical component
+            const propsA = bodyA.customProps || {};
+            const propsB = bodyB.customProps || {};
 
-            if (aIsPowered && !bodyB.isStatic) bodyB.customProps.isPowered = true;
-            if (bIsPowered && !bodyA.isStatic) bodyA.customProps.isPowered = true;
+            const aIsPowered = bodyA.label === 'gerador' || propsA.isPowered;
+            const bIsPowered = bodyB.label === 'gerador' || propsB.isPowered;
+
+            if (aIsPowered && propsB.isPowered !== undefined && !bodyB.isStatic) propsB.isPowered = true;
+            if (bIsPowered && propsA.isPowered !== undefined && !bodyA.isStatic) propsA.isPowered = true;
         });
     }
 }
@@ -1894,12 +1908,24 @@ function updateElectricitySystem() {
 // --- NOVO: Lógica de atualização dos ativadores (botões/alavancas) ---
 function updateActivators() {
     ativadores.forEach(act => {
+        if (act.customProps) act.customProps.isPowered = false; // Reset first
+        
         if (act.label === 'botao') {
             const bodiesOnTop = Matter.Query.region(Matter.Composite.allBodies(world), act.bounds);
             const isPressed = bodiesOnTop.some(b => b.id !== act.id && !b.isStatic && !b.label.includes('segmento'));
-            if(isPressed) act.customProps.isPowered = true;
+            if(isPressed) {
+                act.customProps.isPowered = true;
+                act.customProps.toggled = true;
+            } else {
+                act.customProps.toggled = false;
+            }
         } else if (act.label === 'alavanca') {
-            if (Math.abs(act.angle) > 0.3) act.customProps.isPowered = true;
+            if (Math.abs(act.angle) > 0.3) {
+                act.customProps.isPowered = true;
+                act.customProps.toggled = true;
+            } else {
+                 act.customProps.toggled = false;
+            }
         }
     });
 }
@@ -1909,7 +1935,7 @@ function updateThrusters() {
     propulsores.forEach(p => {
         if (!p.customProps) return;
         
-        // Ativa se estiver ligado na energia OU se foi ativado manualmente
+        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manualmente
         const shouldBeActive = p.customProps.isPowered || p.customProps.isActive;
         
         if (shouldBeActive) {
@@ -1930,7 +1956,7 @@ function updatePistons() {
         const base = pistonComp.bodies.find(b => b.label === 'pistao_base');
         if (!base || !base.customProps) return;
 
-        // Ativa se estiver ligado na energia OU se foi ativado manualmente
+        // Ativa se estiver ligado na energia de um ativador OU se foi ativado manualmente
         const shouldBeActive = base.customProps.isPowered || base.customProps.isActive;
         const prismatic = pistonComp.constraints.find(c => c.stiffness === 0.01);
         
