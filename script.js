@@ -493,6 +493,7 @@ function selectCreationType(type) {
 }
 
 // --- p5.js Setup and Draw Loop ---
+// --- p5.js Setup and Draw Loop ---
 function setup() {
     p5.disableFriendlyErrors = true; 
 
@@ -544,19 +545,33 @@ function setup() {
     document.getElementById('toggle-grid-cb').addEventListener('change', (e) => { showGrid = e.target.checked; });
     document.getElementById('toggle-blood-cb').addEventListener('change', (e) => { showBlood = e.target.checked; });
     
+    // --- CÓDIGO DE TELA CHEIA MODIFICADO ---
     const fsCheckbox = document.getElementById('toggle-fullscreen-cb');
+    const gameWrapper = document.getElementById('aspect-ratio-wrapper'); // Pega o contêiner principal
+
     fsCheckbox.addEventListener('change', () => {
         if (fsCheckbox.checked) {
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(err => {});
+            // Pede para o contêiner do jogo entrar em tela cheia
+            if (gameWrapper.requestFullscreen) {
+                gameWrapper.requestFullscreen().catch(err => {
+                    console.error(`Erro ao tentar entrar em tela cheia: ${err.message} (${err.name})`);
+                });
+            }
         } else {
-            if (document.exitFullscreen) document.exitFullscreen();
+            // O método para sair da tela cheia ainda é chamado no 'document'
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
         }
     });
     
     document.addEventListener('fullscreenchange', () => {
+        // Atualiza o estado do checkbox se o usuário sair da tela cheia com a tecla ESC
         fsCheckbox.checked = !!document.fullscreenElement;
-        setTimeout(() => windowResized(), 100);
+        // Chama windowResized para ajustar o canvas ao novo tamanho
+        setTimeout(() => windowResized(), 100); 
     });
+    // --- FIM DA MODIFICAÇÃO ---
 
 
     const savedMobileControls = localStorage.getItem('ragdollSandboxMobileControls');
@@ -569,7 +584,6 @@ function setup() {
     setupControles();
     windowResized();
 }
-
 function windowResized() {
     const gameContainer = document.getElementById('game-container');
     if (gameContainer.offsetWidth > 0 && gameContainer.offsetHeight > 0) {
