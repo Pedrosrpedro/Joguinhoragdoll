@@ -691,3 +691,28 @@ canvas {
     opacity: 1;
     transform: translateY(0);
 }
+
+/*
+ Adicione este código ao seu arquivo style.css 
+*/
+
+/* Regra para quando o wrapper estiver em tela cheia */
+#aspect-ratio-wrapper:fullscreen {
+  width: 100%;
+  height: 100%;
+  max-width: none; /* Remove qualquer limitação de largura */
+  max-height: none; /* Remove qualquer limitação de altura */
+  aspect-ratio: auto; /* Remove a proporção fixa */
+}
+
+/* Garante que os filhos diretos também se expandam */
+#aspect-ratio-wrapper:fullscreen > #root-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Garante que o contêiner do jogo também se expanda */
+#aspect-ratio-wrapper:fullscreen #game-container {
+   width: 100%;
+   height: 100%;
+}
