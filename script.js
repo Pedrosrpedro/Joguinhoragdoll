@@ -500,6 +500,16 @@ function setup() {
     const gameContainer = document.getElementById('game-container');
     const canvas = createCanvas(1, 1);
     canvas.parent('game-container');
+    
+    // --- INÍCIO DO CÓDIGO PARA CORRIGIR O TOQUE ---
+    // Pega o elemento HTML do canvas
+    const canvasElement = document.getElementById('defaultCanvas0'); 
+    if (canvasElement) {
+        // Impede que o toque no canvas role a página
+        canvasElement.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+        canvasElement.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    }
+    // --- FIM DO CÓDIGO PARA CORRIGIR O TOQUE ---
     const uiElements = [
         document.getElementById('top-bar'), document.getElementById('left-sidebar'), document.getElementById('bottom-bar'),
         document.getElementById('mobile-controls'), document.getElementById('floating-tool-panel'),
